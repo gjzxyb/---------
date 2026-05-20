@@ -1,0 +1,304 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  SUPER_ADMIN
+  SCHOOL_ADMIN
+  DEPARTMENT_ADMIN
+  TEACHER
+  STUDENT
+  ANALYST
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum OrgType {
+  SCHOOL
+  DEPARTMENT
+  CLASS
+}
+
+enum QuestionType {
+  SCALE
+  TEXT
+}
+
+enum TaskStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  ARCHIVED
+}
+
+enum AssignmentStatus {
+  PENDING
+  IN_PROGRESS
+  SUBMITTED
+  EXPIRED
+}
+
+enum ResponseStatus {
+  DRAFT
+  SUBMITTED
+}
+
+enum ImprovementStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id                String                 @id @default(cuid())
+  email             String                 @unique
+  name              String
+  passwordHash      String
+  role              Role
+  status            UserStatus             @default(ACTIVE)
+  organizationId    String
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  organization      Organization           @relation(fields: [organizationId], references: [id])
+  studentProfile    StudentProfile?
+  teacherProfile    TeacherProfile?
+  taughtClasses     TeachingClass[]        @relation("TeachingClassTeacher")
+  enrollments       Enrollment[]           @relation("EnrollmentStudent")
+  assignments       EvaluationAssignment[] @relation("AssignmentEvaluator")
+  improvementPlans  ImprovementPlan[]      @relation("ImprovementPlanTeacher")
+  auditLogs         AuditLog[]             @relation("AuditLogActor")
+
+  @@index([organizationId])
+  @@index([role])
+}
+
+model Organization {
+  id        String         @id @default(cuid())
+  name      String
+  type      OrgType
+  parentId  String?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  parent    Organization?   @relation("OrganizationTree", fields: [parentId], references: [id])
+  children  Organization[]  @relation("OrganizationTree")
+  users     User[]
+  courses   Course[]
+  classes   TeachingClass[]
+
+  @@index([parentId])
+  @@index([type])
+}
+
+model StudentProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  studentNo String   @unique
+  grade     String?
+  major     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model TeacherProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  teacherNo String   @unique
+  title     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Course {
+  id             String          @id @default(cuid())
+  code           String          @unique
+  name           String
+  organizationId String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  organization   Organization?   @relation(fields: [organizationId], references: [id])
+  teachingClasses TeachingClass[]
+
+  @@index([organizationId])
+}
+
+model TeachingClass {
+  id               String                 @id @default(cuid())
+  courseId         String
+  teacherId        String
+  organizationId   String?
+  name             String
+  term             String
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  course           Course                 @relation(fields: [courseId], references: [id])
+  teacher          User                   @relation("TeachingClassTeacher", fields: [teacherId], references: [id])
+  organization     Organization?          @relation(fields: [organizationId], references: [id])
+  enrollments      Enrollment[]
+  assignments      EvaluationAssignment[]
+  improvementPlans ImprovementPlan[]
+
+  @@index([courseId])
+  @@index([teacherId])
+  @@index([organizationId])
+}
+
+model Enrollment {
+  id              String        @id @default(cuid())
+  studentId       String
+  teachingClassId String
+  createdAt       DateTime      @default(now())
+  student         User          @relation("EnrollmentStudent", fields: [studentId], references: [id])
+  teachingClass   TeachingClass @relation(fields: [teachingClassId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, teachingClassId])
+  @@index([teachingClassId])
+}
+
+model QuestionBankItem {
+  id                String             @id @default(cuid())
+  type              QuestionType
+  title             String
+  description       String?
+  maxScore          Int?
+  isActive          Boolean            @default(true)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  templateQuestions TemplateQuestion[]
+}
+
+model EvaluationTemplate {
+  id        String             @id @default(cuid())
+  name      String
+  version   Int                @default(1)
+  isActive  Boolean            @default(true)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  questions TemplateQuestion[]
+  tasks     EvaluationTask[]
+
+  @@unique([name, version])
+}
+
+model TemplateQuestion {
+  id             String              @id @default(cuid())
+  templateId     String
+  questionItemId String?
+  type           QuestionType
+  title          String
+  description    String?
+  sortOrder      Int
+  maxScore       Int?
+  required       Boolean             @default(true)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  template       EvaluationTemplate  @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  questionItem   QuestionBankItem?   @relation(fields: [questionItemId], references: [id])
+  answers        Answer[]
+
+  @@unique([templateId, sortOrder])
+  @@index([questionItemId])
+}
+
+model EvaluationTask {
+  id          String                 @id @default(cuid())
+  templateId  String
+  name        String
+  term        String
+  status      TaskStatus             @default(DRAFT)
+  startsAt    DateTime?
+  endsAt      DateTime?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  template    EvaluationTemplate     @relation(fields: [templateId], references: [id])
+  assignments EvaluationAssignment[]
+
+  @@index([templateId])
+  @@index([status])
+}
+
+model EvaluationAssignment {
+  id              String              @id @default(cuid())
+  taskId          String
+  evaluatorId     String
+  teachingClassId String
+  status          AssignmentStatus    @default(PENDING)
+  assignedAt      DateTime            @default(now())
+  submittedAt     DateTime?
+  task            EvaluationTask      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  evaluator       User                @relation("AssignmentEvaluator", fields: [evaluatorId], references: [id])
+  teachingClass   TeachingClass       @relation(fields: [teachingClassId], references: [id])
+  response        EvaluationResponse?
+
+  @@unique([taskId, evaluatorId, teachingClassId])
+  @@index([evaluatorId])
+  @@index([teachingClassId])
+}
+
+model EvaluationResponse {
+  id           String               @id @default(cuid())
+  assignmentId String               @unique
+  status       ResponseStatus       @default(DRAFT)
+  submittedAt  DateTime?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  assignment   EvaluationAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  answers      Answer[]
+}
+
+model Answer {
+  id         String             @id @default(cuid())
+  responseId String
+  questionId String
+  score      Int?
+  text       String?
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+  response   EvaluationResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  question   TemplateQuestion   @relation(fields: [questionId], references: [id])
+
+  @@unique([responseId, questionId])
+  @@index([questionId])
+}
+
+model ImprovementPlan {
+  id              String            @id @default(cuid())
+  teacherId       String
+  teachingClassId String
+  title           String
+  action          String
+  status          ImprovementStatus @default(OPEN)
+  dueDate         DateTime?
+  evidence        String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  teacher         User              @relation("ImprovementPlanTeacher", fields: [teacherId], references: [id])
+  teachingClass   TeachingClass     @relation(fields: [teachingClassId], references: [id])
+
+  @@index([teacherId])
+  @@index([teachingClassId])
+  @@index([status])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  action    String
+  entity    String
+  entityId  String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  actor     User?    @relation("AuditLogActor", fields: [actorId], references: [id])
+
+  @@index([actorId])
+  @@index([entity, entityId])
+}
