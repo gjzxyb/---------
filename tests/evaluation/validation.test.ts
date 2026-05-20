@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   evaluationSubmissionSchema,
+  improvementPlanSchema,
   scaleAnswerSchema,
   textAnswerSchema,
 } from "../../lib/evaluation/validation";
@@ -25,6 +26,36 @@ describe("evaluation validation", () => {
     expect(result.success).toBe(true);
   });
 
+  it("rejects mixed answers with both score and text", () => {
+    const result = evaluationSubmissionSchema.safeParse({
+      assignmentId: "assignment-1",
+      answers: [{ questionId: "question-1", score: 5, text: "mixed" }],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects scale answers outside the 1 to 5 bounds", () => {
+    expect(
+      scaleAnswerSchema.safeParse({ questionId: "question-1", score: 0 })
+        .success,
+    ).toBe(false);
+    expect(
+      scaleAnswerSchema.safeParse({ questionId: "question-1", score: 6 })
+        .success,
+    ).toBe(false);
+  });
+
+  it("rejects blank question ids and blank open text", () => {
+    expect(
+      scaleAnswerSchema.safeParse({ questionId: "   ", score: 4 }).success,
+    ).toBe(false);
+    expect(
+      textAnswerSchema.safeParse({ questionId: "question-1", text: "   " })
+        .success,
+    ).toBe(false);
+  });
+
   it("rejects submissions with an empty answers array", () => {
     const result = evaluationSubmissionSchema.safeParse({
       assignmentId: "assignment-1",
@@ -44,5 +75,26 @@ describe("evaluation validation", () => {
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it("accepts improvement plan deadline strings and converts them to dates", () => {
+    const result = improvementPlanSchema.safeParse({
+      teacherId: "teacher-1",
+      teachingClassId: "class-1",
+      title: "Improve feedback timing",
+      action: "Return rubric notes within one week.",
+      deadline: "2026-06-01",
+      evidence: "",
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) {
+      return;
+    }
+    expect(result.data.deadline).toBeInstanceOf(Date);
+    expect(result.data.deadline?.toISOString()).toBe(
+      "2026-06-01T00:00:00.000Z",
+    );
+    expect(result.data.evidence).toBeUndefined();
   });
 });
