@@ -4,6 +4,8 @@ import { FormEvent, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
+const loginFailureMessage = "登录失败，请检查账号和密码";
+
 export default function LoginForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -16,21 +18,25 @@ export default function LoginForm() {
     setError("");
     setIsSubmitting(true);
 
-    const result = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
+    try {
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
 
-    setIsSubmitting(false);
+      if (result?.ok === true && !result.error) {
+        router.push("/dashboard");
+        router.refresh();
+        return;
+      }
 
-    if (result?.error) {
-      setError("Invalid email or password.");
-      return;
+      setError(loginFailureMessage);
+    } catch {
+      setError(loginFailureMessage);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    router.push("/dashboard");
-    router.refresh();
   }
 
   return (
