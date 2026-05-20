@@ -1,8 +1,8 @@
 .superpowers/
+.worktrees/
 node_modules/
 .next/
 .env
 .env.local
 dist/
 coverage/
-
