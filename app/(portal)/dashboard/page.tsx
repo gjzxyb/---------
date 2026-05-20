@@ -91,74 +91,70 @@ async function loadDashboardContent(
     return content;
   }
 
-  try {
-    const { prisma } = await import("@/lib/db");
+  const { prisma } = await import("@/lib/db");
 
-    if (role === "STUDENT") {
-      const [pending, inProgress, submitted] = await Promise.all([
-        prisma.evaluationAssignment.count({
-          where: { evaluatorId: userId, status: "PENDING" },
-        }),
-        prisma.evaluationAssignment.count({
-          where: { evaluatorId: userId, status: "IN_PROGRESS" },
-        }),
-        prisma.evaluationAssignment.count({
-          where: { evaluatorId: userId, status: "SUBMITTED" },
-        }),
-      ]);
+  if (role === "STUDENT") {
+    const [pending, inProgress, submitted] = await Promise.all([
+      prisma.evaluationAssignment.count({
+        where: { evaluatorId: userId, status: "PENDING" },
+      }),
+      prisma.evaluationAssignment.count({
+        where: { evaluatorId: userId, status: "IN_PROGRESS" },
+      }),
+      prisma.evaluationAssignment.count({
+        where: { evaluatorId: userId, status: "SUBMITTED" },
+      }),
+    ]);
 
-      return {
-        ...content,
-        metrics: [
-          { label: "待完成评教", value: pending, hint: "尚未开始的评价任务" },
-          { label: "进行中", value: inProgress, hint: "正在填写的评教" },
-          { label: "已提交", value: submitted, hint: "已完成的评价记录" },
-        ],
-      };
-    }
+    return {
+      ...content,
+      metrics: [
+        { label: "待完成评教", value: pending, hint: "尚未开始的评价任务" },
+        { label: "进行中", value: inProgress, hint: "正在填写的评教" },
+        { label: "已提交", value: submitted, hint: "已完成的评价记录" },
+      ],
+    };
+  }
 
-    if (role === "TEACHER") {
-      const [classes, improvements, submittedResponses] = await Promise.all([
-        prisma.teachingClass.count({ where: { teacherId: userId } }),
-        prisma.improvementPlan.count({
-          where: { teacherId: userId, status: { in: ["OPEN", "IN_PROGRESS"] } },
-        }),
-        prisma.evaluationResponse.count({
-          where: {
-            status: "SUBMITTED",
-            assignment: { teachingClass: { teacherId: userId } },
-          },
-        }),
-      ]);
+  if (role === "TEACHER") {
+    const [classes, improvements, submittedResponses] = await Promise.all([
+      prisma.teachingClass.count({ where: { teacherId: userId } }),
+      prisma.improvementPlan.count({
+        where: { teacherId: userId, status: { in: ["OPEN", "IN_PROGRESS"] } },
+      }),
+      prisma.evaluationResponse.count({
+        where: {
+          status: "SUBMITTED",
+          assignment: { teachingClass: { teacherId: userId } },
+        },
+      }),
+    ]);
 
-      return {
-        ...content,
-        metrics: [
-          { label: "授课班级", value: classes, hint: "当前教师名下班级" },
-          { label: "待处理改进", value: improvements, hint: "开放或推进中的改进项" },
-          { label: "评价结果", value: submittedResponses, hint: "已提交评价样本" },
-        ],
-      };
-    }
+    return {
+      ...content,
+      metrics: [
+        { label: "授课班级", value: classes, hint: "当前教师名下班级" },
+        { label: "待处理改进", value: improvements, hint: "开放或推进中的改进项" },
+        { label: "评价结果", value: submittedResponses, hint: "已提交评价样本" },
+      ],
+    };
+  }
 
-    if (adminRoles.includes(role)) {
-      const [tasks, templates, users] = await Promise.all([
-        prisma.evaluationTask.count(),
-        prisma.evaluationTemplate.count(),
-        prisma.user.count(),
-      ]);
+  if (adminRoles.includes(role)) {
+    const [tasks, templates, users] = await Promise.all([
+      prisma.evaluationTask.count(),
+      prisma.evaluationTemplate.count(),
+      prisma.user.count(),
+    ]);
 
-      return {
-        ...content,
-        metrics: [
-          { label: "评教任务", value: tasks, hint: "全部任务数量" },
-          { label: "模板", value: templates, hint: "可用评价模板" },
-          { label: "平台用户", value: users, hint: "当前用户规模" },
-        ],
-      };
-    }
-  } catch {
-    return content;
+    return {
+      ...content,
+      metrics: [
+        { label: "评教任务", value: tasks, hint: "全部任务数量" },
+        { label: "模板", value: templates, hint: "可用评价模板" },
+        { label: "平台用户", value: users, hint: "当前用户规模" },
+      ],
+    };
   }
 
   return content;
