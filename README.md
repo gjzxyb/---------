@@ -72,7 +72,7 @@ All demo accounts use the password `Password123!`.
 ## Core Verification Flow
 
 1. Sign in as `student@example.edu` and submit an evaluation from the student evaluation pages.
-2. Sign in as `teacher@example.edu`, review evaluation results, and create an improvement plan.
+2. Sign in as `teacher@example.edu` and verify the course list, results pages, small-sample notice, and improvement plan creation.
 3. Sign in as `admin@example.edu` and verify the administrative areas:
    - dashboard
    - templates
@@ -80,6 +80,8 @@ All demo accounts use the password `Password123!`.
    - reports
    - base data
    - settings
+
+Teacher result pages hide actual scores, per-question averages, and anonymous comments until there are at least 3 submitted responses for a teaching class. The default seed data has one submitted student response and one pending student response, so submitting as `student@example.edu` brings the sample count to 2 and still triggers small-sample hiding. To verify visible scores and comments, prepare at least 3 submitted responses without changing the default seed script.
 
 ## Common Verification Commands
 
