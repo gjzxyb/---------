@@ -3,7 +3,6 @@ import type { AssignmentStatus, TaskStatus } from "@/lib/generated/prisma/enums"
 export const ADMIN_ROLES = [
   "SUPER_ADMIN",
   "SCHOOL_ADMIN",
-  "DEPARTMENT_ADMIN",
 ] as const;
 
 export const ADMIN_REPORT_ROLES = [...ADMIN_ROLES, "ANALYST"] as const;

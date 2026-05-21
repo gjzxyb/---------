@@ -11,7 +11,7 @@ export type NavigationGroup = {
   items: NavigationItem[];
 };
 
-const adminRoles: Role[] = ["SUPER_ADMIN", "SCHOOL_ADMIN", "DEPARTMENT_ADMIN"];
+const adminRoles: Role[] = ["SUPER_ADMIN", "SCHOOL_ADMIN"];
 const reportRoles: Role[] = [...adminRoles, "ANALYST"];
 const extensionRoles: Role[] = [...adminRoles, "ANALYST"];
 

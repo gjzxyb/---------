@@ -198,7 +198,7 @@ export default async function AdminReportsPage() {
     response.answers.flatMap((answer) => (answer.score === null ? [] : [answer.score])),
   );
   const overallAverage =
-    scoredAnswers.length === 0
+    responses.length < SMALL_SAMPLE_THRESHOLD || scoredAnswers.length === 0
       ? 0
       : Number(
           (
@@ -228,7 +228,17 @@ export default async function AdminReportsPage() {
       <section className="grid gap-4 md:grid-cols-4" aria-label="报告概览">
         <StatCard label="已提交响应" value={formatInteger(responses.length)} hint="仅统计 submitted responses" />
         <StatCard label="计分答案" value={formatInteger(scoredAnswers.length)} hint="剔除文本题与空分值" />
-        <StatCard label="整体平均分" value={overallAverage} hint="按全部计分答案计算" />
+        <StatCard
+          label="整体平均分"
+          value={
+            responses.length < SMALL_SAMPLE_THRESHOLD ? "小样本隐藏" : overallAverage
+          }
+          hint={
+            responses.length < SMALL_SAMPLE_THRESHOLD
+              ? `少于 ${SMALL_SAMPLE_THRESHOLD} 份提交不显示`
+              : "按全部计分答案计算"
+          }
+        />
         <StatCard label="小样本阈值" value={SMALL_SAMPLE_THRESHOLD} hint="低于阈值隐藏均分" />
       </section>
 

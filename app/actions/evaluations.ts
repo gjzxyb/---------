@@ -13,6 +13,10 @@ type ParsedEvaluationSubmission = {
   answers: ParsedEvaluationAnswer[];
 };
 
+function isWithinTaskWindow(task: { startsAt: Date | null; endsAt: Date | null }, now = new Date()) {
+  return (!task.startsAt || task.startsAt <= now) && (!task.endsAt || task.endsAt >= now);
+}
+
 export function parseEvaluationFormData(
   formData: FormData,
 ): ParsedEvaluationSubmission {
@@ -96,6 +100,10 @@ async function persistEvaluation(
 
     if (assignment.task.status !== "OPEN") {
       throw new Error("Evaluation task is not open.");
+    }
+
+    if (!isWithinTaskWindow(assignment.task)) {
+      throw new Error("Evaluation task is outside the active time window.");
     }
 
     if (assignment.response?.status === "SUBMITTED") {

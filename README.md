@@ -32,11 +32,11 @@ Create local environment variables from the example file:
 cp .env.example .env
 ```
 
-The default `DATABASE_URL` points to the PostgreSQL container from `docker-compose.yml`.
+The `DATABASE_URL` in `.env.example` points to the PostgreSQL container from `docker-compose.yml`.
 
 ## Prisma
 
-This project uses Prisma 7. Prisma configuration, including the seed command, lives in `prisma.config.ts`.
+This project uses Prisma 7. Prisma configuration, including the seed command, lives in `prisma.config.ts`. Prisma CLI commands require `DATABASE_URL`; copy `.env.example` to `.env` first or provide the variable in your shell.
 
 Run database migrations:
 
@@ -93,4 +93,4 @@ npx tsc --noEmit
 npm run build
 ```
 
-If `npm run build` fails because `DATABASE_URL` is missing, rerun it with the `DATABASE_URL` from `.env.example`. If PostgreSQL is not running or reachable, DB-dependent build work may remain blocked by the local environment.
+If `npx prisma validate` or `npm run build` fails because `DATABASE_URL` is missing, rerun it after creating `.env` from `.env.example` or provide the `DATABASE_URL` from `.env.example` in your shell. If PostgreSQL is not running or reachable, DB-dependent work may remain blocked by the local environment.

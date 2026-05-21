@@ -88,6 +88,10 @@ function formatDate(date: Date | null) {
   }).format(date);
 }
 
+function isWithinTaskWindow(task: EvaluationDetail["task"], now = new Date()) {
+  return (!task.startsAt || task.startsAt <= now) && (!task.endsAt || task.endsAt >= now);
+}
+
 export default async function StudentEvaluationDetailPage({
   params,
 }: {
@@ -121,7 +125,8 @@ export default async function StudentEvaluationDetailPage({
     assignment.status === "SUBMITTED" ||
     assignment.response?.status === "SUBMITTED";
   const isOpen = assignment.task.status === "OPEN";
-  const isEditable = isOpen && !isSubmitted;
+  const isWithinWindow = isWithinTaskWindow(assignment.task);
+  const isEditable = isOpen && isWithinWindow && !isSubmitted;
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -185,6 +190,12 @@ export default async function StudentEvaluationDetailPage({
       {!isOpen ? (
         <section className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
           当前评教任务未开放，暂时不能编辑。
+        </section>
+      ) : null}
+
+      {isOpen && !isWithinWindow ? (
+        <section className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          当前不在评教任务时间窗口内，暂时不能编辑。
         </section>
       ) : null}
 

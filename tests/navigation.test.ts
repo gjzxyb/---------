@@ -37,6 +37,15 @@ describe("role navigation", () => {
     );
   });
 
+  it("does not expose unscoped admin pages to department admins", () => {
+    const hrefs = hrefsFor("DEPARTMENT_ADMIN");
+
+    expect(hrefs).not.toContain("/admin/dashboard");
+    expect(hrefs).not.toContain("/admin/tasks");
+    expect(hrefs).not.toContain("/admin/base-data");
+    expect(hrefs).not.toContain("/admin/settings");
+  });
+
   it("shows analyst report access without admin task or settings access", () => {
     const hrefs = hrefsFor("ANALYST");
 

@@ -17,6 +17,7 @@ type AssignmentRow = {
     name: string;
     term: string;
     status: string;
+    startsAt: Date | null;
     endsAt: Date | null;
   };
   teachingClass: {
@@ -37,13 +38,26 @@ async function loadEvaluations(userId: string): Promise<EvaluationListData> {
     return { pending: [], completed: [], isDatabaseConfigured: false };
   }
 
+  const now = new Date();
   const { prisma } = await import("@/lib/db");
   const assignments = await prisma.evaluationAssignment.findMany({
     where: {
       evaluatorId: userId,
       OR: [
-        { status: "PENDING" },
-        { response: { status: "DRAFT" } },
+        {
+          AND: [
+            {
+              OR: [{ status: "PENDING" }, { response: { status: "DRAFT" } }],
+            },
+            { task: { status: "OPEN" } },
+            {
+              OR: [{ task: { startsAt: null } }, { task: { startsAt: { lte: now } } }],
+            },
+            {
+              OR: [{ task: { endsAt: null } }, { task: { endsAt: { gte: now } } }],
+            },
+          ],
+        },
         { response: { status: "SUBMITTED" } },
       ],
     },
@@ -63,8 +77,11 @@ async function loadEvaluations(userId: string): Promise<EvaluationListData> {
   return {
     pending: assignments.filter(
       (assignment) =>
-        assignment.status === "PENDING" ||
-        assignment.response?.status === "DRAFT",
+        (assignment.status === "PENDING" ||
+          assignment.response?.status === "DRAFT") &&
+        assignment.task.status === "OPEN" &&
+        (!assignment.task.startsAt || assignment.task.startsAt <= now) &&
+        (!assignment.task.endsAt || assignment.task.endsAt >= now),
     ),
     completed: assignments.filter(
       (assignment) => assignment.response?.status === "SUBMITTED",
