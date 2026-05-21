@@ -56,18 +56,24 @@ export async function updateImprovementPlanStatus(formData: FormData) {
   );
   const { prisma } = await import("@/lib/db");
 
-  const result = await prisma.improvementPlan.updateMany({
+  const plan = await prisma.improvementPlan.findFirst({
     where: {
       id: planId,
       teacherId: session.user.id,
     },
-    data: { status },
+    select: { id: true, teachingClassId: true },
   });
 
-  if (result.count !== 1) {
+  if (!plan) {
     throw new Error("Improvement plan was not found for current teacher.");
   }
 
+  await prisma.improvementPlan.update({
+    where: { id: plan.id },
+    data: { status },
+  });
+
   revalidatePath("/teacher/improvements");
   revalidatePath("/teacher/results");
+  revalidatePath(`/teacher/results/${plan.teachingClassId}`);
 }
