@@ -23,14 +23,16 @@ type SubmittedResponse = {
       term: string;
       course: { id: string; name: string; code: string };
       teacher: { id: string; name: string };
-      organization: {
-        id: string;
-        name: string;
-        type: string;
-        parent: { id: string; name: string; type: string } | null;
-      } | null;
+      organization: ReportOrganization | null;
     };
   };
+};
+
+type ReportOrganization = {
+  id: string;
+  name: string;
+  type: string;
+  parent?: ReportOrganization | null;
 };
 
 type ReportData = {
@@ -59,7 +61,20 @@ async function loadReportData(): Promise<ReportData> {
                   id: true,
                   name: true,
                   type: true,
-                  parent: { select: { id: true, name: true, type: true } },
+                  parent: {
+                    select: {
+                      id: true,
+                      name: true,
+                      type: true,
+                      parent: {
+                        select: {
+                          id: true,
+                          name: true,
+                          type: true,
+                        },
+                      },
+                    },
+                  },
                 },
               },
             },
@@ -73,40 +88,37 @@ async function loadReportData(): Promise<ReportData> {
   return { responses, isDatabaseConfigured: true };
 }
 
-function resolveSchool(response: SubmittedResponse) {
-  const organization = response.assignment.teachingClass.organization;
+function findOrganizationByType(
+  organization: ReportOrganization | null,
+  type: string,
+) {
+  let current: ReportOrganization | null | undefined = organization;
 
-  if (!organization) {
-    return { key: "unknown-school", label: "未归属学校" };
+  while (current) {
+    if (current.type === type) {
+      return current;
+    }
+
+    current = current.parent;
   }
 
-  if (organization.type === "SCHOOL") {
-    return { key: organization.id, label: organization.name };
-  }
-
-  if (organization.parent?.type === "SCHOOL") {
-    return { key: organization.parent.id, label: organization.parent.name };
-  }
-
-  return { key: "unknown-school", label: "未归属学校" };
+  return null;
 }
 
-function resolveDepartment(response: SubmittedResponse) {
+function resolveOrganization(
+  response: SubmittedResponse,
+  type: string,
+  fallbackKey: string,
+  fallbackLabel: string,
+) {
   const organization = response.assignment.teachingClass.organization;
+  const matchedOrganization = findOrganizationByType(organization, type);
 
-  if (!organization) {
-    return { key: "unknown-department", label: "未归属院系" };
+  if (matchedOrganization) {
+    return { key: matchedOrganization.id, label: matchedOrganization.name };
   }
 
-  if (organization.type === "DEPARTMENT") {
-    return { key: organization.id, label: organization.name };
-  }
-
-  if (organization.parent?.type === "DEPARTMENT") {
-    return { key: organization.parent.id, label: organization.parent.name };
-  }
-
-  return { key: "unknown-department", label: "未归属院系" };
+  return { key: fallbackKey, label: fallbackLabel };
 }
 
 function buildAggregates(responses: SubmittedResponse[]) {
@@ -118,8 +130,18 @@ function buildAggregates(responses: SubmittedResponse[]) {
 
   responses.forEach((response) => {
     const teachingClass = response.assignment.teachingClass;
-    const school = resolveSchool(response);
-    const department = resolveDepartment(response);
+    const school = resolveOrganization(
+      response,
+      "SCHOOL",
+      "unknown-school",
+      "未归属学校",
+    );
+    const department = resolveOrganization(
+      response,
+      "DEPARTMENT",
+      "unknown-department",
+      "未归属院系",
+    );
 
     addAggregateScore(schoolBuckets, school.key, school.label, response.answers);
     addAggregateScore(departmentBuckets, department.key, department.label, response.answers);

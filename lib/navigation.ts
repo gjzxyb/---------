@@ -12,6 +12,7 @@ export type NavigationGroup = {
 };
 
 const adminRoles: Role[] = ["SUPER_ADMIN", "SCHOOL_ADMIN", "DEPARTMENT_ADMIN"];
+const reportRoles: Role[] = [...adminRoles, "ANALYST"];
 const extensionRoles: Role[] = [...adminRoles, "ANALYST"];
 
 export const navigationTree: NavigationGroup[] = [
@@ -40,7 +41,7 @@ export const navigationTree: NavigationGroup[] = [
       { title: "管理看板", href: "/admin/dashboard", roles: adminRoles },
       { title: "模板管理", href: "/admin/templates", roles: adminRoles },
       { title: "评教任务", href: "/admin/tasks", roles: adminRoles },
-      { title: "统计报告", href: "/admin/reports", roles: adminRoles },
+      { title: "统计报告", href: "/admin/reports", roles: reportRoles },
       { title: "基础数据", href: "/admin/base-data", roles: adminRoles },
       { title: "系统设置", href: "/admin/settings", roles: adminRoles },
     ],

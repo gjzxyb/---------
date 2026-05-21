@@ -37,6 +37,14 @@ describe("role navigation", () => {
     );
   });
 
+  it("shows analyst report access without admin task or settings access", () => {
+    const hrefs = hrefsFor("ANALYST");
+
+    expect(hrefs).toContain("/admin/reports");
+    expect(hrefs).not.toContain("/admin/tasks");
+    expect(hrefs).not.toContain("/admin/settings");
+  });
+
   it("shows extension modules only to admins and analysts", () => {
     const extensionHref = "/extensions/supervision";
 
