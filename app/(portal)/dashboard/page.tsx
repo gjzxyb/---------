@@ -19,7 +19,7 @@ type DashboardContent = {
   primaryLabel: string;
 };
 
-const adminRoles: Role[] = ["SUPER_ADMIN", "SCHOOL_ADMIN", "DEPARTMENT_ADMIN"];
+const adminRoles: Role[] = ["SUPER_ADMIN", "SCHOOL_ADMIN"];
 
 function fallbackContent(role: Role): DashboardContent {
   if (role === "STUDENT") {
@@ -64,6 +64,21 @@ function fallbackContent(role: Role): DashboardContent {
       todos: ["检查待发布评教任务", "维护模板与基础数据", "查看管理统计报告"],
       primaryHref: "/admin/dashboard",
       primaryLabel: "进入管理看板",
+    };
+  }
+
+  if (role === "DEPARTMENT_ADMIN") {
+    return {
+      title: "院系工作台",
+      description: "院系级数据隔离尚未开放，首版请使用已授权的个人资料和扩展模块入口。",
+      metrics: [
+        { label: "数据范围", value: "待授权", hint: "院系级查询将在数据隔离后开放" },
+        { label: "扩展模块", value: 5, hint: "可查看预留扩展入口" },
+        { label: "管理入口", value: "未开放", hint: "避免读取未隔离的全校数据" },
+      ],
+      todos: ["等待院系数据隔离配置", "查看个人资料和已授权扩展入口"],
+      primaryHref: "/profile",
+      primaryLabel: "查看个人资料",
     };
   }
 

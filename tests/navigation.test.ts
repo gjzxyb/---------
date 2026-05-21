@@ -63,3 +63,15 @@ describe("role navigation", () => {
     expect(hrefsFor("STUDENT")).not.toContain(extensionHref);
   });
 });
+
+describe("role dashboard entry policy", () => {
+  it("keeps department admins away from unscoped admin dashboard links", async () => {
+    const source = await import("node:fs/promises").then((fs) =>
+      fs.readFile("app/(portal)/dashboard/page.tsx", "utf8"),
+    );
+
+    expect(source).toContain('const adminRoles: Role[] = ["SUPER_ADMIN", "SCHOOL_ADMIN"]');
+    expect(source).toContain('if (role === "DEPARTMENT_ADMIN")');
+    expect(source).toContain('primaryHref: "/profile"');
+  });
+});
