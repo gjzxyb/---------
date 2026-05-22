@@ -1,6 +1,7 @@
 import { DataTable } from "@/components/data-table";
 import { StatCard } from "@/components/stat-card";
 import { StatusBadge } from "@/components/status-badge";
+import Link from "next/link";
 import { requireRole } from "@/lib/auth/guards";
 import {
   ADMIN_ROLES,
@@ -148,6 +149,14 @@ function orgTypeLabel(type: string) {
   return labels[type] ?? type;
 }
 
+const baseDataLinks = [
+  ["组织结构", "/admin/base-data/organizations", "维护学校、院系、行政班级树"],
+  ["课程管理", "/admin/base-data/courses", "维护课程编码、名称和归属组织"],
+  ["学生管理", "/admin/base-data/students", "维护学生账号、学号、年级和专业"],
+  ["教师管理", "/admin/base-data/teachers", "维护教师账号、工号、职称和组织"],
+  ["教学班与选课", "/admin/base-data/classes", "维护授课班级和学生选课关系"],
+];
+
 export default async function AdminBaseDataPage() {
   await requireRole([...ADMIN_ROLES]);
   const {
@@ -185,6 +194,19 @@ export default async function AdminBaseDataPage() {
         <StatCard label="课程" value={formatInteger(courses.length)} hint="列表展示前 30 条" />
         <StatCard label="教学班" value={formatInteger(teachingClasses.length)} hint="列表展示前 30 条" />
         <StatCard label="选课关系" value={formatInteger(enrollmentCount)} hint="Enrollment 总数" />
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        {baseDataLinks.map(([title, href, description]) => (
+          <Link
+            key={href}
+            href={href}
+            className="rounded-md border border-slate-200 bg-white p-4 shadow-sm transition hover:border-sky-300 hover:shadow-md"
+          >
+            <div className="text-base font-semibold text-slate-950">{title}</div>
+            <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p>
+          </Link>
+        ))}
       </section>
 
       <section className="grid gap-6 xl:grid-cols-2">

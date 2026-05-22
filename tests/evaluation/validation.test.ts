@@ -4,6 +4,8 @@ import {
   evaluationSubmissionSchema,
   improvementPlanSchema,
   scaleAnswerSchema,
+  taskAssignmentGenerationSchema,
+  taskDeleteSchema,
   textAnswerSchema,
 } from "../../lib/evaluation/validation";
 
@@ -96,5 +98,40 @@ describe("evaluation validation", () => {
       "2026-06-01T00:00:00.000Z",
     );
     expect(result.data.evidence).toBeUndefined();
+  });
+
+  it("parses task assignment generation with repeated class ids", () => {
+    const result = taskAssignmentGenerationSchema.safeParse({
+      organizationIds: ["org-1"],
+      taskId: "task-1",
+      teachingClassIds: ["class-1", "class-2"],
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) {
+      return;
+    }
+    expect(result.data).toEqual({
+      organizationIds: ["org-1"],
+      taskId: "task-1",
+      teachingClassIds: ["class-1", "class-2"],
+    });
+  });
+
+  it("normalizes empty task assignment class selection to all classes", () => {
+    const result = taskAssignmentGenerationSchema.safeParse({
+      taskId: "task-1",
+      teachingClassIds: [],
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) {
+      return;
+    }
+    expect(result.data.teachingClassIds).toEqual([]);
+  });
+
+  it("requires a task id before deleting a task", () => {
+    expect(taskDeleteSchema.safeParse({ taskId: "" }).success).toBe(false);
   });
 });

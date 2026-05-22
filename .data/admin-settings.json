@@ -1,0 +1,19 @@
+{
+  "academicYear": "2026-2027",
+  "anonymousSubmission": true,
+  "currentTerm": "2026-2027-1",
+  "dataIsolation": true,
+  "dictionaryParametersText": "题型=SCALE / TEXT\r\n任务状态=DRAFT / OPEN / CLOSED / ARCHIVED\r\n派发状态=PENDING / IN_PROGRESS / SUBMITTED / EXPIRED\r\n组织类型=SCHOOL / DEPARTMENT / CLASS",
+  "exportWatermark": true,
+  "resultReleaseMode": "MANUAL",
+  "textDesensitization": true,
+  "smallSampleThreshold": 3,
+  "reminderChannels": [
+    "站内信",
+    "邮件"
+  ],
+  "ssoProvider": "CAS / OAuth2",
+  "termEndDate": "2027-02-01",
+  "termStartDate": "2026-09-01",
+  "interfaceNote": "预留统一认证、教务系统、LMS 和消息平台接口配置。"
+}

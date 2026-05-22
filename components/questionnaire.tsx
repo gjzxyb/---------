@@ -1,7 +1,8 @@
 import {
   saveEvaluationDraft,
   submitEvaluation,
-} from "@/app/actions/evaluations";
+} from "../app/actions/evaluations";
+import { getScaleOptions } from "../lib/evaluation/scale-options";
 
 type QuestionType = "SCALE" | "TEXT";
 
@@ -11,6 +12,7 @@ export type QuestionnaireQuestion = {
   title: string;
   description: string | null;
   sortOrder: number;
+  maxScore: number | null;
   required: boolean;
 };
 
@@ -26,6 +28,20 @@ type QuestionnaireProps = {
   answers?: QuestionnaireAnswer[];
   disabled?: boolean;
 };
+
+function getVisibleQuestionDescription(description: string | null) {
+  if (!description) {
+    return null;
+  }
+
+  const normalizedDescription = description.trim();
+
+  if (normalizedDescription.startsWith("分类：")) {
+    return null;
+  }
+
+  return normalizedDescription;
+}
 
 export function Questionnaire({
   assignmentId,
@@ -44,6 +60,9 @@ export function Questionnaire({
       <div className="space-y-4">
         {questions.map((question, index) => {
           const answer = answersByQuestionId.get(question.id);
+          const visibleDescription = getVisibleQuestionDescription(
+            question.description,
+          );
 
           return (
             <fieldset
@@ -54,28 +73,28 @@ export function Questionnaire({
               <legend className="text-base font-semibold text-slate-950">
                 {index + 1}. {question.title}
               </legend>
-              {question.description ? (
+              {visibleDescription ? (
                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                  {question.description}
+                  {visibleDescription}
                 </p>
               ) : null}
 
               {question.type === "SCALE" ? (
-                <div className="mt-4 grid gap-3 sm:grid-cols-5">
-                  {[1, 2, 3, 4, 5].map((score) => (
+                <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                  {getScaleOptions(question.maxScore).map((option) => (
                     <label
-                      key={score}
-                      className="flex items-center justify-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700"
+                      key={option.value}
+                      className="flex min-h-10 items-center justify-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700"
                     >
                       <input
                         type="radio"
                         name={`answers.${question.id}.score`}
-                        value={score}
-                        defaultChecked={answer?.score === score}
+                        value={option.value}
+                        defaultChecked={answer?.score === option.value}
                         required={question.required}
                         className="h-4 w-4 border-slate-300 text-sky-600 focus:ring-sky-500"
                       />
-                      {score}
+                      <span>{option.label}</span>
                     </label>
                   ))}
                 </div>

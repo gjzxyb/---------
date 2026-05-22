@@ -151,15 +151,19 @@ export default async function TeacherResultsPage() {
           const hasEnoughSamples = submittedCount >= MIN_SAMPLE_SIZE;
 
           return [
-            <div key="course">
-              <div className="font-medium text-slate-900">
+            <Link
+              key="course"
+              href={`/teacher/results/${teachingClass.id}`}
+              className="block"
+            >
+              <div className="font-medium text-sky-700 transition hover:text-sky-900">
                 {teachingClass.course.name}
               </div>
               <div className="mt-1 text-xs text-slate-500">
                 {teachingClass.course.code} · {teachingClass.name} ·{" "}
                 {teachingClass.term}
               </div>
-            </div>,
+            </Link>,
             submittedCount,
             hasEnoughSamples ? getAverageScore(teachingClass) : "小样本隐藏",
             <StatusBadge

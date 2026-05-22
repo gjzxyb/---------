@@ -128,7 +128,7 @@ export function taskStatusLabel(status: TaskStatus | string) {
 
 export function assignmentStatusLabel(status: AssignmentStatus | string) {
   const labels: Record<string, string> = {
-    PENDING: "待开始",
+    PENDING: "待填写",
     IN_PROGRESS: "填写中",
     SUBMITTED: "已提交",
     EXPIRED: "已过期",

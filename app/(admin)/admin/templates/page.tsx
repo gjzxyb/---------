@@ -1,6 +1,13 @@
 import { DataTable } from "@/components/data-table";
 import { StatCard } from "@/components/stat-card";
 import { StatusBadge } from "@/components/status-badge";
+import {
+  createEvaluationTemplate,
+  createQuestionBankItem,
+  deleteQuestionBankItem,
+} from "@/app/actions/admin";
+import { TemplateQuestionEditor } from "./TemplateQuestionEditor";
+import { TemplateVersionManager } from "./TemplateVersionManager";
 import { requireRole } from "@/lib/auth/guards";
 import {
   ADMIN_ROLES,
@@ -17,6 +24,7 @@ type QuestionBankRow = {
   type: string;
   maxScore: number | null;
   isActive: boolean;
+  _count: { templateQuestions: number };
 };
 
 type TemplateRow = {
@@ -24,19 +32,22 @@ type TemplateRow = {
   name: string;
   version: number;
   isActive: boolean;
+  questions: {
+    id: string;
+    questionItemId: string | null;
+    type: "SCALE" | "TEXT";
+    title: string;
+    description: string | null;
+    sortOrder: number;
+    maxScore: number | null;
+    required: boolean;
+  }[];
   _count: { questions: number; tasks: number };
-};
-
-type TemplateVersionRow = {
-  name: string;
-  _count: { version: number };
-  _max: { version: number | null };
 };
 
 type TemplateData = {
   questionBankItems: QuestionBankRow[];
   templates: TemplateRow[];
-  templateVersions: TemplateVersionRow[];
   questionTypes: { type: string; _count: { type: number } }[];
   isDatabaseConfigured: boolean;
 };
@@ -46,14 +57,13 @@ async function loadTemplateData(): Promise<TemplateData> {
     return {
       questionBankItems: [],
       templates: [],
-      templateVersions: [],
       questionTypes: [],
       isDatabaseConfigured: false,
     };
   }
 
   const { prisma } = await import("@/lib/db");
-  const [questionBankItems, templates, templateVersions, questionTypes] =
+  const [questionBankItems, templates, questionTypes] =
     await Promise.all([
       prisma.questionBankItem.findMany({
         select: {
@@ -62,20 +72,28 @@ async function loadTemplateData(): Promise<TemplateData> {
           type: true,
           maxScore: true,
           isActive: true,
+          _count: { select: { templateQuestions: true } },
         },
         orderBy: [{ isActive: "desc" }, { updatedAt: "desc" }],
       }),
       prisma.evaluationTemplate.findMany({
         include: {
+          questions: {
+            select: {
+              id: true,
+              questionItemId: true,
+              type: true,
+              title: true,
+              description: true,
+              sortOrder: true,
+              maxScore: true,
+              required: true,
+            },
+            orderBy: { sortOrder: "asc" },
+          },
           _count: { select: { questions: true, tasks: true } },
         },
         orderBy: [{ name: "asc" }, { version: "desc" }],
-      }),
-      prisma.evaluationTemplate.groupBy({
-        by: ["name"],
-        _count: { version: true },
-        _max: { version: true },
-        orderBy: { name: "asc" },
       }),
       prisma.questionBankItem.groupBy({
         by: ["type"],
@@ -87,7 +105,6 @@ async function loadTemplateData(): Promise<TemplateData> {
   return {
     questionBankItems,
     templates,
-    templateVersions,
     questionTypes,
     isDatabaseConfigured: true,
   };
@@ -102,7 +119,6 @@ export default async function AdminTemplatesPage() {
   const {
     questionBankItems,
     templates,
-    templateVersions,
     questionTypes,
     isDatabaseConfigured,
   } = await loadTemplateData();
@@ -118,17 +134,9 @@ export default async function AdminTemplatesPage() {
             评价模板与题库
           </h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            首版提供题库、模板版本、题型和启用状态只读视图，便于发布前核对内容。
+            管理题库条目、模板版本、题型和启用状态，支持首版新建模板并关联已有题目。
           </p>
         </div>
-        <button
-          type="button"
-          disabled
-          title="首版只读，暂不支持新建模板"
-          className="rounded-md border border-slate-300 bg-slate-100 px-4 py-2 text-sm font-medium text-slate-500"
-        >
-          首版只读，暂不支持新建
-        </button>
       </div>
 
       {!isDatabaseConfigured ? (
@@ -140,65 +148,168 @@ export default async function AdminTemplatesPage() {
       <section className="grid gap-4 md:grid-cols-4" aria-label="模板概览">
         <StatCard label="题库条目" value={formatInteger(questionBankItems.length)} hint={`${formatInteger(activeQuestions)} 个启用`} />
         <StatCard label="评价模板" value={formatInteger(templates.length)} hint={`${formatInteger(activeTemplates)} 个启用`} />
-        <StatCard label="模板版本组" value={formatInteger(templateVersions.length)} hint="按模板名称归并" />
+        <StatCard label="模板版本" value={formatInteger(templates.length)} hint="模板与版本统一管理" />
         <StatCard label="题型" value={formatInteger(questionTypes.length)} hint="当前题库覆盖题型" />
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-2">
-        <div className="space-y-3">
-          <h2 className="text-base font-semibold text-slate-950">模板版本</h2>
-          <DataTable
-            headers={["模板", "版本", "题目数", "关联任务", "状态", "操作"]}
-            emptyText="暂无模板。"
-            rows={templates.map((template) => [
-              template.name,
-              `v${template.version}`,
-              formatInteger(template._count.questions),
-              formatInteger(template._count.tasks),
-              <StatusBadge key="status" tone={activeStatusTone(template.isActive)}>
-                {activeStatusLabel(template.isActive)}
-              </StatusBadge>,
-              <button
-                key="action"
-                type="button"
-                disabled
-                title="首版只读，暂不支持编辑模板"
-                className="text-sm font-medium text-slate-400"
+      <section className="space-y-6">
+        <form
+          action={createQuestionBankItem}
+          className="rounded-md border border-slate-200 bg-white p-5 shadow-sm"
+        >
+          <h2 className="text-base font-semibold text-slate-950">新建题库题目</h2>
+          <div className="mt-4 grid gap-4 lg:grid-cols-6">
+            <label className="grid gap-1 text-sm font-medium text-slate-700">
+              题型
+              <select
+                name="type"
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                defaultValue="SCALE"
+                disabled={!isDatabaseConfigured}
               >
-                只读
-              </button>,
-            ])}
-          />
-        </div>
+                <option value="SCALE">量表题</option>
+                <option value="TEXT">文本题</option>
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm font-medium text-slate-700 lg:col-span-3">
+              题干
+              <input
+                name="title"
+                required
+                placeholder="例如：教学内容重点突出，课堂组织清晰"
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                disabled={!isDatabaseConfigured}
+              />
+            </label>
+            <label className="grid gap-1 text-sm font-medium text-slate-700 lg:col-span-2">
+              满分
+              <input
+                name="maxScore"
+                type="number"
+                min={1}
+                max={100}
+                defaultValue={5}
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                disabled={!isDatabaseConfigured}
+              />
+            </label>
+            <label className="grid gap-1 text-sm font-medium text-slate-700 lg:col-span-5">
+              说明
+              <textarea
+                name="description"
+                rows={3}
+                placeholder="可填写评价口径、评分说明或适用场景"
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                disabled={!isDatabaseConfigured}
+              />
+            </label>
+            <label className="flex items-center gap-2 pt-6 text-sm font-medium text-slate-700">
+              <input
+                name="isActive"
+                type="checkbox"
+                defaultChecked
+                className="size-4 rounded border-slate-300"
+                disabled={!isDatabaseConfigured}
+              />
+              启用题目
+            </label>
+            <button
+              type="submit"
+              disabled={!isDatabaseConfigured}
+              className="inline-flex w-fit self-end rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white disabled:bg-slate-300"
+            >
+              创建题目
+            </button>
+          </div>
+        </form>
 
         <div className="space-y-3">
           <h2 className="text-base font-semibold text-slate-950">题库条目</h2>
           <DataTable
-            headers={["题目", "题型", "满分", "状态"]}
+            headers={["题目", "题型", "满分", "状态", "引用", "操作"]}
             emptyText="暂无题库条目。"
-            rows={questionBankItems.map((item) => [
-              <div key="title" className="max-w-md font-medium text-slate-900">
-                {item.title}
-              </div>,
-              questionTypeLabel(item.type),
-              item.maxScore ?? "不计分",
-              <StatusBadge key="status" tone={activeStatusTone(item.isActive)}>
-                {activeStatusLabel(item.isActive)}
-              </StatusBadge>,
-            ])}
+            rows={questionBankItems.map((item) => {
+              const canDelete = item._count.templateQuestions === 0;
+
+              return [
+                <div key="title" className="max-w-3xl font-medium text-slate-900">
+                  {item.title}
+                </div>,
+                questionTypeLabel(item.type),
+                item.maxScore ?? "不计分",
+                <StatusBadge key="status" tone={activeStatusTone(item.isActive)}>
+                  {activeStatusLabel(item.isActive)}
+                </StatusBadge>,
+                formatInteger(item._count.templateQuestions),
+                <form key="delete" action={deleteQuestionBankItem}>
+                  <input type="hidden" name="questionId" value={item.id} />
+                  <button
+                    disabled={!canDelete}
+                    title={canDelete ? "删除该题库条目" : "已被模板引用，不可删除"}
+                    className="text-sm font-medium text-rose-700 disabled:text-slate-400"
+                  >
+                    删除
+                  </button>
+                </form>,
+              ];
+            })}
           />
         </div>
+
+        <form
+          action={createEvaluationTemplate}
+          className="rounded-md border border-slate-200 bg-white p-5 shadow-sm"
+        >
+          <h2 className="text-base font-semibold text-slate-950">新建评价模板</h2>
+          <div className="mt-4 grid gap-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="grid gap-1 text-sm font-medium text-slate-700">
+                模板名称
+                <input
+                  name="name"
+                  required
+                  placeholder="例如：课堂教学质量评价"
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  disabled={!isDatabaseConfigured}
+                />
+              </label>
+              <label className="grid gap-1 text-sm font-medium text-slate-700">
+                版本
+                <input
+                  name="version"
+                  type="number"
+                  min={1}
+                  defaultValue={1}
+                  required
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  disabled={!isDatabaseConfigured}
+                />
+              </label>
+            </div>
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+              <input
+                name="isActive"
+                type="checkbox"
+                defaultChecked
+                className="size-4 rounded border-slate-300"
+                disabled={!isDatabaseConfigured}
+              />
+              启用模板
+            </label>
+            <TemplateQuestionEditor
+              questionBankItems={questionBankItems}
+              disabled={!isDatabaseConfigured}
+            />
+          </div>
+        </form>
       </section>
 
-      <DataTable
-        headers={["模板名称", "版本数量", "最新版本"]}
-        emptyText="暂无模板版本。"
-        rows={templateVersions.map((version) => [
-          version.name,
-          formatInteger(version._count.version),
-          `v${version._max.version ?? 1}`,
-        ])}
-      />
+      <section>
+        <TemplateVersionManager
+          templates={templates}
+          questionBankItems={questionBankItems}
+        />
+      </section>
     </div>
   );
 }

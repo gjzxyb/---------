@@ -7,9 +7,9 @@ import { StatusBadge } from "@/components/status-badge";
 import { requireRole } from "@/lib/auth/guards";
 import {
   averageScore,
-  maskComments,
   summarizeQuestionScores,
 } from "@/lib/evaluation/aggregate";
+import { maskSensitiveText } from "@/lib/admin/reports";
 
 const MIN_SAMPLE_SIZE = 3;
 
@@ -19,6 +19,10 @@ type ResultDetail = {
   term: string;
   course: { name: string; code: string };
   assignments: {
+    task: {
+      name: string;
+      term: string;
+    };
     response: {
       status: string;
       submittedAt: Date | null;
@@ -64,6 +68,7 @@ async function loadResultDetail(
       course: true,
       assignments: {
         include: {
+          task: { select: { name: true, term: true } },
           response: {
             include: {
               answers: {
@@ -151,13 +156,31 @@ export default async function TeacherResultDetailPage({
       ]),
     ),
   );
-  const textComments = maskComments(
-    responses.flatMap((response) =>
-      response.answers.map((answer) => ({
-        text: answer.text,
-        createdAt: answer.createdAt,
-      })),
-    ),
+  const anonymousSuggestions = teachingClass.assignments.flatMap(
+    (assignment, assignmentIndex) => {
+      const response = assignment.response;
+
+      if (response?.status !== "SUBMITTED") {
+        return [];
+      }
+
+      return response.answers.flatMap((answer) => {
+        const text = answer.text?.trim();
+
+        if (!text) {
+          return [];
+        }
+
+        return [
+          {
+            anonymousNo: `匿名反馈 ${assignmentIndex + 1}`,
+            question: answer.question.title,
+            task: `${assignment.task.term} · ${assignment.task.name}`,
+            text: maskSensitiveText(text),
+          },
+        ];
+      });
+    },
   );
   const distribution = [1, 2, 3, 4, 5].map((score) => ({
     score,
@@ -198,7 +221,7 @@ export default async function TeacherResultDetailPage({
 
       {!hasEnoughSamples ? (
         <section className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-          已提交样本少于 {MIN_SAMPLE_SIZE} 份，分数、题目均分和匿名意见已隐藏。
+          已提交样本少于 {MIN_SAMPLE_SIZE} 份，分数和题目均分已隐藏；建议内容仍以匿名方式展示。
         </section>
       ) : null}
 
@@ -244,21 +267,27 @@ export default async function TeacherResultDetailPage({
             />
           </section>
 
-          <section className="space-y-3">
-            <h2 className="text-base font-semibold text-slate-950">
-              匿名文本意见
-            </h2>
-            <DataTable
-              headers={["提交时间", "意见"]}
-              emptyText="暂无文本意见。"
-              rows={textComments.map((comment) => [
-                formatDate(comment.createdAt),
-                comment.text,
-              ])}
-            />
-          </section>
         </>
       ) : null}
+
+      <section className="space-y-3">
+        <h2 className="text-base font-semibold text-slate-950">
+          学生建议内容
+        </h2>
+        <DataTable
+          headers={["匿名序号", "评价任务", "题目", "建议内容"]}
+          emptyText="暂无建议内容。"
+          rows={anonymousSuggestions.map((suggestion) => [
+            suggestion.anonymousNo,
+            suggestion.task,
+            suggestion.question,
+            suggestion.text,
+          ])}
+        />
+        <p className="text-xs text-slate-500">
+          该列表不展示学生姓名、学号、邮箱或其他身份字段；建议内容中的邮箱、手机号和连续长数字已自动脱敏。
+        </p>
+      </section>
 
       <section className="space-y-3">
         <h2 className="text-base font-semibold text-slate-950">改进计划</h2>

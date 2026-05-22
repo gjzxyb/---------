@@ -4,6 +4,7 @@ import type { Session } from "next-auth";
 import { signOut } from "next-auth/react";
 
 import { Nav } from "@/components/nav";
+import { PageContextBar } from "@/components/page-context-bar";
 import { StatusBadge } from "@/components/status-badge";
 import type { NavigationGroup } from "@/lib/navigation";
 import type { Role } from "@/lib/generated/prisma/enums";
@@ -66,7 +67,10 @@ export function AppShell({ children, navigation, session }: AppShellProps) {
           <Nav groups={navigation} />
         </div>
 
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+          <PageContextBar navigation={navigation} />
+          {children}
+        </main>
       </div>
     </div>
   );
