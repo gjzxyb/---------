@@ -37,6 +37,14 @@ describe("parseStudentImportCsv", () => {
     ).toThrow("第 2 行");
   });
 
+  it("accepts graduated student status", () => {
+    expect(
+      parseStudentImportCsv(
+        "姓名,邮箱,学号,年级,专业,组织,状态\n王五,wangwu@example.edu,S003,2022,计算机,高三一班,GRADUATED",
+      )[0].status,
+    ).toBe("GRADUATED");
+  });
+
   it("exports a csv template with the expected headers", () => {
     expect(STUDENT_IMPORT_TEMPLATE_CSV.split("\n")[0]).toBe(
       "姓名,邮箱,学号,年级,专业,组织,状态",
@@ -58,6 +66,12 @@ describe("parseStudentListQuery", () => {
       q: "张三",
       status: "ACTIVE",
     });
+  });
+
+  it("parses graduated status filters", () => {
+    expect(parseStudentListQuery({ status: "GRADUATED" }).status).toBe(
+      "GRADUATED",
+    );
   });
 
   it("caps page size to a controlled set", () => {

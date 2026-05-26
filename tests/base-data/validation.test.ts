@@ -49,6 +49,18 @@ describe("base data validation", () => {
     ).toBe("S001");
 
     expect(
+      studentSchema.parse({
+        name: "王五",
+        email: "graduated@example.com",
+        organizationId: "org-1",
+        studentNo: "S999",
+        grade: "2022",
+        major: "计算机科学",
+        status: "GRADUATED",
+      }).status,
+    ).toBe("GRADUATED");
+
+    expect(
       teacherSchema.parse({
         name: "李老师",
         email: "teacher@example.com",

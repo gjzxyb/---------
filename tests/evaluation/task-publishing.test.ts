@@ -46,6 +46,26 @@ describe("buildAssignmentDrafts", () => {
 
     expect(drafts).toHaveLength(2);
   });
+
+  it("excludes graduated student enrollments from new assignments", () => {
+    const drafts = buildAssignmentDrafts({
+      enrollments: [
+        { studentId: "student-1", teachingClassId: "class-1", studentStatus: "ACTIVE" },
+        { studentId: "student-2", teachingClassId: "class-1", studentStatus: "GRADUATED" },
+      ],
+      existingAssignments: [],
+      teachingClassIds: [],
+      taskId: "task-1",
+    });
+
+    expect(drafts).toEqual([
+      {
+        evaluatorId: "student-1",
+        teachingClassId: "class-1",
+        taskId: "task-1",
+      },
+    ]);
+  });
 });
 
 describe("resolveTeachingClassScope", () => {

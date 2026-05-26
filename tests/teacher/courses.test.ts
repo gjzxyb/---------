@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  canMaintainTeachingClass,
   courseMatchesStatus,
   getCourseStatusLabel,
   parseTeacherCourseQuery,
+  parseTeacherTeachingClassInput,
   summarizeCourseAssignments,
 } from "../../lib/teacher/courses";
 
@@ -60,5 +62,47 @@ describe("teacher course assignment summary", () => {
     expect(courseMatchesStatus([openAssignment], "OPEN_TASK")).toBe(true);
     expect(courseMatchesStatus([], "NO_TASK")).toBe(true);
     expect(courseMatchesStatus([submittedAssignment], "COMPLETED")).toBe(true);
+  });
+});
+
+describe("teacher course maintenance", () => {
+  it("normalizes teaching class form input", () => {
+    expect(
+      parseTeacherTeachingClassInput({
+        courseId: " course-1 ",
+        name: " 软件工程 1 班 ",
+        organizationId: "",
+        term: " 2026 春 ",
+      }),
+    ).toEqual({
+      courseId: "course-1",
+      name: "软件工程 1 班",
+      organizationId: undefined,
+      term: "2026 春",
+    });
+  });
+
+  it("allows only current-term classes to be maintained", () => {
+    expect(
+      canMaintainTeachingClass({
+        assignmentCount: 0,
+        currentTerm: "2026 春",
+        term: "2026 春",
+      }),
+    ).toEqual({ canChangeCourse: true, canEdit: true });
+    expect(
+      canMaintainTeachingClass({
+        assignmentCount: 3,
+        currentTerm: "2026 春",
+        term: "2026 春",
+      }),
+    ).toEqual({ canChangeCourse: false, canEdit: true });
+    expect(
+      canMaintainTeachingClass({
+        assignmentCount: 0,
+        currentTerm: "2026 春",
+        term: "2025 秋",
+      }),
+    ).toEqual({ canChangeCourse: false, canEdit: false });
   });
 });

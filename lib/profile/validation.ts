@@ -37,6 +37,10 @@ export const profileUpdateSchema = z.object({
     .max(50, "姓名不能超过 50 个字符"),
 });
 
+export const studentClassUpdateSchema = z.object({
+  organizationId: z.string().trim().min(1, "请选择班级"),
+});
+
 export const passwordChangeSchema = z
   .object({
     currentPassword: z.string().min(1, "请输入当前密码"),

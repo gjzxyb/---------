@@ -5,7 +5,11 @@ import { DataTable } from "@/components/data-table";
 import { StatCard } from "@/components/stat-card";
 import { StatusBadge } from "@/components/status-badge";
 import { requireRole } from "@/lib/auth/guards";
-import { maskSensitiveText, parseReportQuery } from "@/lib/admin/reports";
+import {
+  buildReportSearchParams,
+  maskSensitiveText,
+  parseReportQuery,
+} from "@/lib/admin/reports";
 import {
   ADMIN_REPORT_ROLES,
   assignmentStatusLabel,
@@ -213,12 +217,30 @@ export default async function ClassReportDetailPage({
       answer.score === null ? [] : [answer.score],
     ) ?? [],
   );
+  const exportParams = buildReportSearchParams(
+    {},
+    {
+      taskId: query.taskId,
+      term: query.term,
+    },
+  );
+  const detailExportHref = exportParams.toString()
+    ? `/admin/reports/classes/${teachingClassId}/export?${exportParams.toString()}`
+    : `/admin/reports/classes/${teachingClassId}/export`;
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
-      <Link href="/admin/reports" className="text-sm font-medium text-sky-700">
-        返回报表中心
-      </Link>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Link href="/admin/reports" className="text-sm font-medium text-sky-700">
+          返回报表中心
+        </Link>
+        <Link
+          href={detailExportHref}
+          className="inline-flex w-fit rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700"
+        >
+          导出学生评教明细 Excel
+        </Link>
+      </div>
 
       <section className="rounded-md border border-slate-200 bg-white p-6 shadow-sm">
         <StatusBadge tone="info">教学班明细</StatusBadge>

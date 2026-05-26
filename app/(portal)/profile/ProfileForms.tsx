@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import {
   changeOwnPassword,
   type ProfileActionState,
+  updateOwnStudentClass,
   updateOwnProfile,
 } from "@/app/actions/profile";
 import { passwordComplexityRules } from "@/lib/profile/validation";
@@ -145,6 +146,58 @@ export function PasswordChangeForm() {
         className="inline-flex items-center justify-center rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-800 focus:outline-none focus:ring-2 focus:ring-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {pending ? "修改中..." : "修改密码"}
+      </button>
+    </form>
+  );
+}
+
+export function StudentClassUpdateForm({
+  classOptions,
+  currentOrganizationId,
+}: {
+  classOptions: { id: string; name: string; parentName?: string | null }[];
+  currentOrganizationId: string;
+}) {
+  const [state, formAction, pending] = useActionState(
+    updateOwnStudentClass,
+    initialState,
+  );
+
+  return (
+    <form action={formAction} className="space-y-4">
+      <ActionMessage state={state} />
+      <div>
+        <label
+          htmlFor="student-class"
+          className="text-sm font-medium text-slate-700"
+        >
+          所属班级
+        </label>
+        <select
+          id="student-class"
+          name="organizationId"
+          defaultValue={currentOrganizationId}
+          className="mt-2 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500"
+        >
+          <option value="">请选择班级</option>
+          {classOptions.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.parentName ? `${option.parentName} / ` : ""}
+              {option.name}
+            </option>
+          ))}
+        </select>
+        <FieldError messages={state.fieldErrors?.organizationId} />
+      </div>
+      <p className="text-sm leading-6 text-slate-600">
+        此处修改的是个人所属行政班级，不会自动调整已选课程、评教任务或历史记录。
+      </p>
+      <button
+        type="submit"
+        disabled={pending || classOptions.length === 0}
+        className="inline-flex items-center justify-center rounded-md bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {pending ? "保存中..." : "保存班级"}
       </button>
     </form>
   );

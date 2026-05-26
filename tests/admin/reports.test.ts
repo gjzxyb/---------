@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildCsv,
+  buildExcelWorkbook,
   buildReportSearchParams,
+  buildScoreTrendCoordinates,
+  buildScoreTrendPath,
   maskSensitiveText,
   parseReportQuery,
 } from "../../lib/admin/reports";
@@ -40,5 +43,30 @@ describe("admin reports helpers", () => {
     expect(buildCsv(["名称", "说明"], [["课程,一", '他说"好"']])).toBe(
       '名称,说明\n"课程,一","他说""好"""',
     );
+  });
+
+  it("builds an Excel-readable workbook with escaped cells", () => {
+    const workbook = buildExcelWorkbook({
+      headers: ["教学班", "说明"],
+      rows: [["软件工程 1 班", "A&B <优秀>"]],
+      sheetName: "教学班报表",
+    });
+
+    expect(workbook).toContain("<table");
+    expect(workbook).toContain("教学班报表");
+    expect(workbook).toContain("软件工程 1 班");
+    expect(workbook).toContain("A&amp;B &lt;优秀&gt;");
+  });
+
+  it("maps score trends to stable svg coordinates", () => {
+    const scores = [5, 2.5, 0];
+    const config = { height: 60, maxScore: 5, padding: 10, width: 100 };
+
+    expect(buildScoreTrendCoordinates(scores, config)).toEqual([
+      { score: 5, x: 10, y: 10 },
+      { score: 2.5, x: 50, y: 30 },
+      { score: 0, x: 90, y: 50 },
+    ]);
+    expect(buildScoreTrendPath(scores, config)).toBe("M 10 10 L 50 30 L 90 50");
   });
 });

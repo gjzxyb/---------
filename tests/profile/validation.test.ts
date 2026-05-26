@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   getPasswordComplexityErrors,
   passwordChangeSchema,
+  studentClassUpdateSchema,
   profileUpdateSchema,
 } from "../../lib/profile/validation";
 
@@ -15,6 +16,24 @@ describe("profile validation", () => {
 
   it("rejects short profile names", () => {
     const parsed = profileUpdateSchema.safeParse({ name: "A" });
+
+    expect(parsed.success).toBe(false);
+  });
+});
+
+describe("student class validation", () => {
+  it("accepts a selected class organization", () => {
+    const parsed = studentClassUpdateSchema.safeParse({
+      organizationId: "class-1",
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it("rejects an empty class organization", () => {
+    const parsed = studentClassUpdateSchema.safeParse({
+      organizationId: "",
+    });
 
     expect(parsed.success).toBe(false);
   });

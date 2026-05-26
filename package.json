@@ -6,6 +6,7 @@
     "dev": "next dev -H 0.0.0.0",
     "build": "next build",
     "start": "next start",
+    "create-super-admin": "tsx scripts/create-super-admin.ts",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest"

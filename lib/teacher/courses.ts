@@ -13,8 +13,25 @@ export type CourseAssignmentInput = {
   };
 };
 
+export type TeacherTeachingClassInput = {
+  courseId: string;
+  name: string;
+  organizationId?: string;
+  term: string;
+};
+
 function firstValue(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
+}
+
+function requiredText(value: unknown) {
+  return String(value ?? "").trim();
+}
+
+function optionalText(value: unknown) {
+  const trimmedValue = requiredText(value);
+
+  return trimmedValue || undefined;
 }
 
 export function parseTeacherCourseQuery(
@@ -99,4 +116,38 @@ export function courseMatchesStatus(
   }
 
   return summary.total > 0 && summary.submitted === summary.total;
+}
+
+export function parseTeacherTeachingClassInput(
+  values: Record<string, unknown>,
+): TeacherTeachingClassInput {
+  const parsed = {
+    courseId: requiredText(values.courseId),
+    name: requiredText(values.name),
+    organizationId: optionalText(values.organizationId),
+    term: requiredText(values.term),
+  };
+
+  if (!parsed.courseId || !parsed.name || !parsed.term) {
+    throw new Error("Teaching class requires course, name and term.");
+  }
+
+  return parsed;
+}
+
+export function canMaintainTeachingClass({
+  assignmentCount,
+  currentTerm,
+  term,
+}: {
+  assignmentCount: number;
+  currentTerm: string;
+  term: string;
+}) {
+  const canEdit = Boolean(currentTerm) && term === currentTerm;
+
+  return {
+    canChangeCourse: canEdit && assignmentCount === 0,
+    canEdit,
+  };
 }

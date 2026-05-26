@@ -264,6 +264,54 @@ function classBucketRows(
   });
 }
 
+function teacherBucketRows(
+  aggregates: ReturnType<typeof finalizeBuckets>,
+  query: ReturnType<typeof parseReportQuery>,
+) {
+  return aggregates.map((aggregate) => {
+    const sampleHidden = aggregate.submitted < SMALL_SAMPLE_THRESHOLD;
+    const detailParams = buildReportSearchParams(
+      {},
+      {
+        courseId: query.courseId,
+        organizationId: query.organizationId,
+        taskId: query.taskId,
+        term: query.term,
+      },
+    );
+    const detailHref = detailParams.toString()
+      ? `/admin/reports/teachers/${aggregate.key}?${detailParams.toString()}`
+      : `/admin/reports/teachers/${aggregate.key}`;
+
+    return [
+      <Link
+        key="label"
+        href={detailHref}
+        className="font-medium text-sky-700 hover:text-sky-900"
+      >
+        {aggregate.label}
+      </Link>,
+      `${formatInteger(aggregate.submitted)} / ${formatInteger(aggregate.assigned)}`,
+      formatPercent(aggregate.responseRate),
+      sampleHidden ? "小样本隐藏" : aggregate.average,
+      <StatusBadge
+        key="status"
+        tone={
+          sampleHidden || aggregate.responseRate < LOW_RESPONSE_RATE
+            ? "warning"
+            : "success"
+        }
+      >
+        {sampleHidden
+          ? "样本不足"
+          : aggregate.responseRate < LOW_RESPONSE_RATE
+            ? "低回收"
+            : "可分析"}
+      </StatusBadge>,
+    ];
+  });
+}
+
 function buildAggregates(
   assignments: ReportAssignment[],
   responses: ReportResponse[],
@@ -657,6 +705,7 @@ export default async function AdminReportsPage({
   const questionSummaries = buildQuestionSummaries(responses);
   const textComments = buildTextComments(responses);
   const exportHref = `/admin/reports/export?${buildReportSearchParams(query).toString()}`;
+  const classExportHref = `/admin/reports/classes/export?${buildReportSearchParams(query).toString()}`;
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -782,7 +831,7 @@ export default async function AdminReportsPage({
       <section className="grid gap-6 xl:grid-cols-2">
         <div className="space-y-3">
           <h2 className="text-base font-semibold text-slate-950">教师报表</h2>
-          <DataTable headers={["教师", "提交/派发", "回收率", "平均分", "状态"]} emptyText="暂无教师汇总。" rows={bucketRows(aggregates.teachers)} />
+          <DataTable headers={["教师", "提交/派发", "回收率", "平均分", "状态"]} emptyText="暂无教师汇总。" rows={teacherBucketRows(aggregates.teachers, query)} />
         </div>
         <div className="space-y-3">
           <h2 className="text-base font-semibold text-slate-950">课程报表</h2>
@@ -791,7 +840,15 @@ export default async function AdminReportsPage({
       </section>
 
       <div className="space-y-3">
-        <h2 className="text-base font-semibold text-slate-950">教学班报表</h2>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-base font-semibold text-slate-950">教学班报表</h2>
+          <Link
+            href={classExportHref}
+            className="inline-flex w-fit rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700"
+          >
+            导出教学班 Excel
+          </Link>
+        </div>
         <DataTable headers={["教学班", "提交/派发", "回收率", "平均分", "状态"]} emptyText="暂无教学班汇总。" rows={classBucketRows(aggregates.classes, query)} />
         <p className="text-xs text-slate-500">
           点击教学班名称可查看该班所有学生的评教明细。

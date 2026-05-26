@@ -1,9 +1,14 @@
 import Link from "next/link";
 
+import {
+  createOwnTeachingClass,
+  updateOwnTeachingClass,
+} from "@/app/actions/teacher-courses";
 import { DataTable } from "@/components/data-table";
 import { StatCard } from "@/components/stat-card";
 import { StatusBadge } from "@/components/status-badge";
 import { requireRole } from "@/lib/auth/guards";
+import { canMaintainTeachingClass } from "@/lib/teacher/courses";
 import {
   courseMatchesStatus,
   getCourseStatusLabel,
@@ -16,8 +21,10 @@ type TeacherCourse = {
   id: string;
   name: string;
   term: string;
-  course: { name: string; code: string };
-  organization: { name: string } | null;
+  courseId: string;
+  organizationId: string | null;
+  course: { id: string; name: string; code: string };
+  organization: { id: string; name: string } | null;
   enrollments: {
     student: {
       id: string;
@@ -36,7 +43,9 @@ type TeacherCourse = {
 
 type TeacherCoursesData = {
   classes: TeacherCourse[];
+  courses: Array<{ code: string; id: string; name: string }>;
   isDatabaseConfigured: boolean;
+  organizations: Array<{ id: string; name: string }>;
   terms: string[];
 };
 
@@ -48,44 +57,62 @@ async function loadTeacherCourses(
   teacherId: string,
 ): Promise<TeacherCoursesData> {
   if (!process.env.DATABASE_URL) {
-    return { classes: [], isDatabaseConfigured: false, terms: [] };
+    return {
+      classes: [],
+      courses: [],
+      isDatabaseConfigured: false,
+      organizations: [],
+      terms: [],
+    };
   }
 
   const { prisma } = await import("@/lib/db");
-  const classes = await prisma.teachingClass.findMany({
-    where: { teacherId },
-    include: {
-      course: true,
-      organization: { select: { name: true } },
-      enrollments: {
-        include: {
-          student: {
-            select: {
-              email: true,
-              id: true,
-              name: true,
-              studentProfile: {
-                select: { grade: true, major: true, studentNo: true },
+  const [classes, courses, organizations] = await Promise.all([
+    prisma.teachingClass.findMany({
+      where: { teacherId },
+      include: {
+        course: true,
+        organization: { select: { id: true, name: true } },
+        enrollments: {
+          include: {
+            student: {
+              select: {
+                email: true,
+                id: true,
+                name: true,
+                studentProfile: {
+                  select: { grade: true, major: true, studentNo: true },
+                },
               },
             },
           },
+          orderBy: [{ student: { name: "asc" } }],
         },
-        orderBy: [{ student: { name: "asc" } }],
+        assignments: {
+          include: { task: true },
+          orderBy: [{ assignedAt: "desc" }],
+        },
+        improvementPlans: {
+          select: { id: true, status: true },
+        },
       },
-      assignments: {
-        include: { task: true },
-        orderBy: [{ assignedAt: "desc" }],
-      },
-      improvementPlans: {
-        select: { id: true, status: true },
-      },
-    },
-    orderBy: [{ term: "desc" }, { name: "asc" }],
-  });
+      orderBy: [{ term: "desc" }, { name: "asc" }],
+    }),
+    prisma.course.findMany({
+      orderBy: [{ code: "asc" }, { name: "asc" }],
+      select: { code: true, id: true, name: true },
+    }),
+    prisma.organization.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+  ]);
 
   return {
     classes,
+    courses,
     isDatabaseConfigured: true,
+    organizations,
     terms: Array.from(new Set(classes.map((teachingClass) => teachingClass.term))),
   };
 }
@@ -139,9 +166,10 @@ export default async function TeacherCoursesPage({
 }) {
   const session = await requireRole(["TEACHER"]);
   const query = parseTeacherCourseQuery(await searchParams);
-  const { classes, isDatabaseConfigured, terms } = await loadTeacherCourses(
+  const { classes, courses, isDatabaseConfigured, organizations, terms } = await loadTeacherCourses(
     session.user.id,
   );
+  const currentTerm = terms[0] ?? query.term;
   const filteredClasses = filterClasses(classes, query);
   const enrollmentCount = filteredClasses.reduce(
     (total, teachingClass) => total + teachingClass.enrollments.length,
@@ -169,7 +197,7 @@ export default async function TeacherCoursesPage({
           授课班级
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-          查看本人任课班级、选课学生名单、评教回收进度和后续处理入口。
+          查看并维护本人当前学期授课班级、选课学生名单、评教回收进度和后续处理入口。
         </p>
       </div>
 
@@ -184,6 +212,80 @@ export default async function TeacherCoursesPage({
         <StatCard label="选课学生" value={enrollmentCount} hint="当前筛选范围" />
         <StatCard label="评教派发" value={assignmentCount} hint={`${submittedCount} 份已提交`} />
         <StatCard label="收集中班级" value={openTaskClassCount} hint="存在开放评教任务" />
+      </section>
+
+      <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-slate-950">
+              维护当前学期授课信息
+            </h2>
+            <p className="mt-1 text-sm text-slate-600">
+              新建授课班级会固定归属当前教师；已有评教派发的班级只能调整班级名称和组织。
+            </p>
+          </div>
+          <StatusBadge tone="neutral">
+            当前学期：{currentTerm || "请填写"}
+          </StatusBadge>
+        </div>
+        <form action={createOwnTeachingClass} className="mt-4 grid gap-4 lg:grid-cols-[1fr_1fr_160px_1fr_auto]">
+          <label className="grid gap-2 text-sm font-medium text-slate-700">
+            课程
+            <select
+              name="courseId"
+              required
+              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
+            >
+              <option value="">选择课程</option>
+              {courses.map((course) => (
+                <option key={course.id} value={course.id}>
+                  {course.name} ({course.code})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="grid gap-2 text-sm font-medium text-slate-700">
+            授课班级名称
+            <input
+              name="name"
+              required
+              placeholder="如 软件工程 1 班"
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
+            />
+          </label>
+          <label className="grid gap-2 text-sm font-medium text-slate-700">
+            学期
+            <input
+              name="term"
+              required
+              defaultValue={currentTerm}
+              placeholder="如 2026 春"
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
+            />
+          </label>
+          <label className="grid gap-2 text-sm font-medium text-slate-700">
+            组织
+            <select
+              name="organizationId"
+              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
+            >
+              <option value="">未设置</option>
+              {organizations.map((organization) => (
+                <option key={organization.id} value={organization.id}>
+                  {organization.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="flex items-end">
+            <button
+              type="submit"
+              className="rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500"
+            >
+              新增授课
+            </button>
+          </div>
+        </form>
       </section>
 
       <form className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
@@ -352,6 +454,85 @@ export default async function TeacherCoursesPage({
                         >
                           改进计划
                         </Link>
+                        {(() => {
+                          const maintenance = canMaintainTeachingClass({
+                            assignmentCount: teachingClass.assignments.length,
+                            currentTerm,
+                            term: teachingClass.term,
+                          });
+
+                          if (!maintenance.canEdit) {
+                            return (
+                              <span className="text-xs text-slate-400">
+                                非当前学期不可维护
+                              </span>
+                            );
+                          }
+
+                          return (
+                            <details className="mt-1">
+                              <summary className="cursor-pointer font-medium text-slate-700 transition hover:text-slate-950">
+                                维护授课
+                              </summary>
+                              <form
+                                action={updateOwnTeachingClass}
+                                className="mt-3 grid min-w-72 gap-3 rounded-md border border-slate-200 bg-slate-50 p-3"
+                              >
+                                <input type="hidden" name="id" value={teachingClass.id} />
+                                {maintenance.canChangeCourse ? (
+                                  <label className="grid gap-1 text-xs font-medium text-slate-600">
+                                    课程
+                                    <select
+                                      name="courseId"
+                                      defaultValue={teachingClass.courseId}
+                                      className="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900"
+                                    >
+                                      {courses.map((course) => (
+                                        <option key={course.id} value={course.id}>
+                                          {course.name} ({course.code})
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </label>
+                                ) : (
+                                  <p className="text-xs text-amber-700">
+                                    已有评教派发，课程不可修改。
+                                  </p>
+                                )}
+                                <label className="grid gap-1 text-xs font-medium text-slate-600">
+                                  班级名称
+                                  <input
+                                    name="name"
+                                    required
+                                    defaultValue={teachingClass.name}
+                                    className="rounded-md border border-slate-300 px-2 py-1.5 text-sm text-slate-900"
+                                  />
+                                </label>
+                                <label className="grid gap-1 text-xs font-medium text-slate-600">
+                                  组织
+                                  <select
+                                    name="organizationId"
+                                    defaultValue={teachingClass.organizationId ?? ""}
+                                    className="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900"
+                                  >
+                                    <option value="">未设置</option>
+                                    {organizations.map((organization) => (
+                                      <option key={organization.id} value={organization.id}>
+                                        {organization.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                                <button
+                                  type="submit"
+                                  className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-slate-800"
+                                >
+                                  保存
+                                </button>
+                              </form>
+                            </details>
+                          );
+                        })()}
                       </div>
                     </td>
                   </tr>

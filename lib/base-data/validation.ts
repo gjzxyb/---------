@@ -42,7 +42,7 @@ export const studentSchema = z.object({
   studentNo: requiredString,
   grade: optionalString,
   major: optionalString,
-  status: z.enum(["ACTIVE", "INACTIVE"]),
+  status: z.enum(["ACTIVE", "INACTIVE", "GRADUATED"]),
 });
 
 export const teacherSchema = z.object({

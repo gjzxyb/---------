@@ -2,7 +2,11 @@ import { StatusBadge } from "@/components/status-badge";
 import { requireSession } from "@/lib/auth/guards";
 import type { Role, UserStatus } from "@/lib/generated/prisma/enums";
 
-import { PasswordChangeForm, ProfileUpdateForm } from "./ProfileForms";
+import {
+  PasswordChangeForm,
+  ProfileUpdateForm,
+  StudentClassUpdateForm,
+} from "./ProfileForms";
 
 const roleLabels: Record<Role, string> = {
   SUPER_ADMIN: "超级管理员",
@@ -15,6 +19,7 @@ const roleLabels: Record<Role, string> = {
 
 const statusLabels: Record<UserStatus, string> = {
   ACTIVE: "启用",
+  GRADUATED: "已毕业",
   INACTIVE: "停用",
 };
 
@@ -46,6 +51,19 @@ export default async function ProfilePage() {
   if (!user) {
     throw new Error("当前用户不存在，请重新登录。");
   }
+
+  const classOrganizations =
+    user.role === "STUDENT"
+      ? await prisma.organization.findMany({
+          where: { type: "CLASS" },
+          select: {
+            id: true,
+            name: true,
+            parent: { select: { name: true } },
+          },
+          orderBy: [{ parentId: "asc" }, { name: "asc" }],
+        })
+      : [];
 
   const fields = [
     { label: "用户 ID", value: user.id },
@@ -132,6 +150,25 @@ export default async function ProfilePage() {
             <ProfileUpdateForm name={user.name} />
           </div>
         </section>
+
+        {user.role === "STUDENT" ? (
+          <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="text-base font-semibold text-slate-950">修改班级</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              学生可自行维护当前所属行政班级，便于通知和基础数据归属。
+            </p>
+            <div className="mt-5">
+              <StudentClassUpdateForm
+                classOptions={classOrganizations.map((organization) => ({
+                  id: organization.id,
+                  name: organization.name,
+                  parentName: organization.parent?.name,
+                }))}
+                currentOrganizationId={user.organizationId}
+              />
+            </div>
+          </section>
+        ) : null}
 
         <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-base font-semibold text-slate-950">修改密码</h2>

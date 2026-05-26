@@ -94,3 +94,21 @@ npm run build
 ```
 
 如果 `npx prisma validate` 或 `npm run build` 因缺少 `DATABASE_URL` 失败，请先根据 `.env.example` 创建 `.env`，或在 shell 中提供 `.env.example` 中的 `DATABASE_URL` 后重试。如果 PostgreSQL 未启动或不可访问，依赖数据库的步骤仍可能被本地环境阻断。
+
+## 生产部署
+
+生产部署建议使用 Docker Compose、PostgreSQL、Nginx 和 Git 更新流程。项目已提供：
+
+- `Dockerfile`
+- `docker-compose.prod.yml`
+- `.env.production.example`
+- `scripts/deploy.sh`
+- `docs/deployment.md`
+
+完整部署和后续更新步骤见 [生产部署与更新指南](docs/deployment.md)。
+
+首次部署后可创建或提升超级管理员：
+
+```bash
+npm run create-super-admin -- superadmin@example.edu 'StrongPass123!' '超级管理员'
+```

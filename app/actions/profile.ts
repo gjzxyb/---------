@@ -2,11 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 
+import { createSafeAuditLog } from "@/lib/audit-log";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { requireSession } from "@/lib/auth/guards";
 import {
   passwordChangeSchema,
   profileUpdateSchema,
+  studentClassUpdateSchema,
 } from "@/lib/profile/validation";
 
 export type ProfileActionState = {
@@ -63,24 +65,20 @@ export async function updateOwnProfile(
     return { ok: true, message: "资料未变化。" };
   }
 
-  await prisma.$transaction([
-    prisma.user.update({
-      where: { id: session.user.id },
-      data: { name: parsed.data.name },
-    }),
-    prisma.auditLog.create({
-      data: {
-        actorId: session.user.id,
-        action: "UPDATE_PROFILE",
-        entity: "User",
-        entityId: session.user.id,
-        metadata: {
-          fromName: currentUser.name,
-          toName: parsed.data.name,
-        },
-      },
-    }),
-  ]);
+  await prisma.user.update({
+    where: { id: session.user.id },
+    data: { name: parsed.data.name },
+  });
+  await createSafeAuditLog(prisma, {
+    actorId: session.user.id,
+    action: "UPDATE_PROFILE",
+    entity: "User",
+    entityId: session.user.id,
+    metadata: {
+      fromName: currentUser.name,
+      toName: parsed.data.name,
+    },
+  });
 
   revalidatePath("/profile");
   revalidatePath("/dashboard");
@@ -131,25 +129,92 @@ export async function changeOwnPassword(
 
   const passwordHash = await hashPassword(parsed.data.newPassword);
 
-  await prisma.$transaction([
-    prisma.user.update({
-      where: { id: session.user.id },
-      data: { passwordHash },
-    }),
-    prisma.auditLog.create({
-      data: {
-        actorId: session.user.id,
-        action: "CHANGE_PASSWORD",
-        entity: "User",
-        entityId: session.user.id,
-        metadata: {
-          changedBySelf: true,
-        },
-      },
-    }),
-  ]);
+  await prisma.user.update({
+    where: { id: session.user.id },
+    data: { passwordHash },
+  });
+  await createSafeAuditLog(prisma, {
+    actorId: session.user.id,
+    action: "CHANGE_PASSWORD",
+    entity: "User",
+    entityId: session.user.id,
+    metadata: {
+      changedBySelf: true,
+    },
+  });
 
   revalidatePath("/profile");
 
   return { ok: true, message: "密码已修改，下次登录请使用新密码。" };
+}
+
+export async function updateOwnStudentClass(
+  _previousState: ProfileActionState,
+  formData: FormData,
+): Promise<ProfileActionState> {
+  const session = await requireSession();
+  const parsed = studentClassUpdateSchema.safeParse({
+    organizationId: String(formData.get("organizationId") ?? ""),
+  });
+
+  if (!parsed.success) {
+    return {
+      ...defaultErrorState,
+      fieldErrors: buildFieldErrors(parsed.error),
+    };
+  }
+
+  const { prisma } = await import("@/lib/db");
+  const [currentUser, targetClass] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { id: true, organizationId: true, role: true },
+    }),
+    prisma.organization.findUnique({
+      where: { id: parsed.data.organizationId },
+      select: { id: true, name: true, type: true },
+    }),
+  ]);
+
+  if (!currentUser) {
+    return { ok: false, message: "当前用户不存在，请重新登录。" };
+  }
+
+  if (currentUser.role !== "STUDENT") {
+    return { ok: false, message: "只有学生账号可以修改自己的班级。" };
+  }
+
+  if (!targetClass || targetClass.type !== "CLASS") {
+    return {
+      ok: false,
+      message: "请选择有效的班级。",
+      fieldErrors: { organizationId: ["请选择有效的班级"] },
+    };
+  }
+
+  if (currentUser.organizationId === targetClass.id) {
+    return { ok: true, message: "班级未变化。" };
+  }
+
+  await prisma.user.update({
+    where: { id: session.user.id },
+    data: { organizationId: targetClass.id },
+  });
+  await createSafeAuditLog(prisma, {
+    actorId: session.user.id,
+    action: "UPDATE_OWN_CLASS",
+    entity: "User",
+    entityId: session.user.id,
+    metadata: {
+      fromOrganizationId: currentUser.organizationId,
+      toOrganizationId: targetClass.id,
+      toOrganizationName: targetClass.name,
+    },
+  });
+
+  revalidatePath("/profile");
+  revalidatePath("/dashboard");
+  revalidatePath("/student/evaluations");
+
+  return { ok: true, message: "班级已更新。已选课程和历史评教记录不会自动变更。" };
 }

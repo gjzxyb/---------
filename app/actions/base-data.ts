@@ -2,12 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 
+import { createSafeAuditLog } from "@/lib/audit-log";
 import { requireRole } from "@/lib/auth/guards";
 import { hashPassword } from "@/lib/auth/password";
 import {
   parseEnrollmentImportCsv,
   parseTeachingClassImportCsv,
 } from "@/lib/base-data/class-enrollment";
+import { parseCourseImportCsv } from "@/lib/base-data/course-import";
 import {
   courseSchema,
   enrollmentSchema,
@@ -99,6 +101,65 @@ export async function deleteCourse(formData: FormData) {
   }
 
   await prisma.course.delete({ where: { id } });
+  baseDataPaths();
+}
+
+export async function importCourses(formData: FormData) {
+  await requireRole([...ADMIN_ROLES]);
+  const file = formData.get("file");
+
+  if (!(file instanceof File) || file.size === 0) {
+    throw new Error("Please upload a CSV file.");
+  }
+
+  const rows = parseCourseImportCsv(await file.text());
+
+  if (rows.length === 0) {
+    baseDataPaths();
+    return;
+  }
+
+  const { prisma } = await import("@/lib/db");
+  const [organizations, existingCourses] = await Promise.all([
+    prisma.organization.findMany({ select: { id: true, name: true } }),
+    prisma.course.findMany({
+      select: { code: true },
+      where: { code: { in: rows.map((row) => row.code) } },
+    }),
+  ]);
+  const organizationsByKey = new Map<string, string>();
+  const existingCodes = new Set(existingCourses.map((course) => course.code));
+  const seenCodes = new Set<string>();
+
+  organizations.forEach((organization) => {
+    organizationsByKey.set(organization.id, organization.id);
+    organizationsByKey.set(organization.name, organization.id);
+  });
+
+  for (const row of rows) {
+    const organizationId = row.organization
+      ? organizationsByKey.get(row.organization)
+      : undefined;
+
+    if (
+      existingCodes.has(row.code) ||
+      seenCodes.has(row.code) ||
+      (row.organization && !organizationId)
+    ) {
+      continue;
+    }
+
+    seenCodes.add(row.code);
+
+    await prisma.course.create({
+      data: {
+        code: row.code,
+        name: row.name,
+        organizationId,
+      },
+    });
+  }
+
   baseDataPaths();
 }
 
@@ -261,6 +322,115 @@ export async function deleteStudents(formData: FormData) {
   await prisma.user.deleteMany({
     where: { id: { in: deletableIds }, role: "STUDENT" },
   });
+  baseDataPaths();
+}
+
+export async function markStudentGraduated(formData: FormData) {
+  const session = await requireRole([...ADMIN_ROLES]);
+  const { id } = idSchema.parse({ id: String(formData.get("id") ?? "") });
+  const { prisma } = await import("@/lib/db");
+  const student = await prisma.user.findUnique({
+    where: { id },
+    select: { id: true, name: true, role: true, status: true },
+  });
+
+  if (!student || student.role !== "STUDENT") {
+    throw new Error("Student was not found.");
+  }
+
+  if (student.status === "GRADUATED") {
+    baseDataPaths();
+    return;
+  }
+
+  await prisma.user.update({
+    where: { id },
+    data: { status: "GRADUATED" },
+  });
+  await createSafeAuditLog(prisma, {
+    actorId: session.user.id,
+    action: "MARK_STUDENT_GRADUATED",
+    entity: "User",
+    entityId: id,
+    metadata: { fromStatus: student.status, studentName: student.name },
+  });
+
+  baseDataPaths();
+}
+
+export async function restoreGraduatedStudent(formData: FormData) {
+  const session = await requireRole([...ADMIN_ROLES]);
+  const { id } = idSchema.parse({ id: String(formData.get("id") ?? "") });
+  const { prisma } = await import("@/lib/db");
+  const student = await prisma.user.findUnique({
+    where: { id },
+    select: { id: true, name: true, role: true, status: true },
+  });
+
+  if (!student || student.role !== "STUDENT") {
+    throw new Error("Student was not found.");
+  }
+
+  if (student.status !== "GRADUATED") {
+    baseDataPaths();
+    return;
+  }
+
+  await prisma.user.update({
+    where: { id },
+    data: { status: "ACTIVE" },
+  });
+  await createSafeAuditLog(prisma, {
+    actorId: session.user.id,
+    action: "RESTORE_GRADUATED_STUDENT",
+    entity: "User",
+    entityId: id,
+    metadata: { fromStatus: student.status, studentName: student.name },
+  });
+
+  baseDataPaths();
+}
+
+export async function markStudentsGraduated(formData: FormData) {
+  const session = await requireRole([...ADMIN_ROLES]);
+  const rawIds = formData.getAll("ids").map((value) => String(value));
+
+  if (rawIds.length === 0) {
+    baseDataPaths();
+    return;
+  }
+
+  const { ids } = idsSchema.parse({ ids: rawIds });
+  const { prisma } = await import("@/lib/db");
+  const students = await prisma.user.findMany({
+    where: {
+      id: { in: ids },
+      role: "STUDENT",
+      status: { not: "GRADUATED" },
+    },
+    select: { id: true, status: true },
+  });
+  const studentIds = students.map((student) => student.id);
+
+  if (studentIds.length === 0) {
+    baseDataPaths();
+    return;
+  }
+
+  await prisma.user.updateMany({
+    where: { id: { in: studentIds }, role: "STUDENT" },
+    data: { status: "GRADUATED" },
+  });
+  await createSafeAuditLog(prisma, {
+    actorId: session.user.id,
+    action: "BATCH_MARK_STUDENTS_GRADUATED",
+    entity: "User",
+    metadata: {
+      count: studentIds.length,
+      studentIds,
+    },
+  });
+
   baseDataPaths();
 }
 

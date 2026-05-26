@@ -14,6 +14,7 @@ describe("role navigation", () => {
     const hrefs = hrefsFor("STUDENT");
 
     expect(hrefs).toContain("/student/evaluations");
+    expect(hrefs).toContain("/student/courses");
     expect(hrefs).not.toContain("/admin/dashboard");
   });
 

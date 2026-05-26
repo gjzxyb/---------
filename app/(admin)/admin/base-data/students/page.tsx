@@ -7,6 +7,9 @@ import {
   deleteStudent,
   deleteStudents,
   importStudents,
+  markStudentGraduated,
+  markStudentsGraduated,
+  restoreGraduatedStudent,
 } from "@/app/actions/base-data";
 import { requireRole } from "@/lib/auth/guards";
 import { parseStudentListQuery } from "@/lib/base-data/student-import";
@@ -51,6 +54,7 @@ async function loadData(query: ReturnType<typeof parseStudentListQuery>) {
   if (!isDatabaseConfigured()) {
     return {
       activeCount: 0,
+      graduatedCount: 0,
       grades: [],
       isDatabaseConfigured: false,
       majors: [],
@@ -101,6 +105,7 @@ async function loadData(query: ReturnType<typeof parseStudentListQuery>) {
     organizations,
     totalCount,
     activeCount,
+    graduatedCount,
     studentProfiles,
   ] = await Promise.all([
     prisma.user.findMany({
@@ -117,6 +122,7 @@ async function loadData(query: ReturnType<typeof parseStudentListQuery>) {
     prisma.organization.findMany({ orderBy: { name: "asc" } }),
     prisma.user.count({ where }),
     prisma.user.count({ where: { ...where, status: "ACTIVE" } }),
+    prisma.user.count({ where: { ...where, status: "GRADUATED" } }),
     prisma.studentProfile.findMany({
       select: { grade: true, major: true },
       orderBy: [{ grade: "asc" }, { major: "asc" }],
@@ -125,6 +131,7 @@ async function loadData(query: ReturnType<typeof parseStudentListQuery>) {
 
   return {
     activeCount,
+    graduatedCount,
     grades: uniqueValues(studentProfiles.map((profile) => profile.grade)),
     isDatabaseConfigured: true,
     majors: uniqueValues(studentProfiles.map((profile) => profile.major)),
@@ -144,6 +151,7 @@ export default async function StudentsPage({
   const query = parseStudentListQuery(await searchParams);
   const {
     activeCount,
+    graduatedCount,
     grades,
     isDatabaseConfigured,
     majors,
@@ -175,7 +183,7 @@ export default async function StudentsPage({
       <section className="grid gap-4 md:grid-cols-3">
         <StatCard label="筛选结果" value={formatInteger(totalCount)} hint="符合当前条件的学生" />
         <StatCard label="启用账号" value={formatInteger(activeCount)} hint="当前条件下可登录" />
-        <StatCard label="本页选课记录" value={formatInteger(students.reduce((sum, item) => sum + item._count.enrollments, 0))} hint="当前页学生选课数" />
+        <StatCard label="已毕业" value={formatInteger(graduatedCount)} hint="当前条件下归档账号" />
       </section>
 
       <section className="grid gap-6 xl:grid-cols-2">
@@ -209,6 +217,7 @@ export default async function StudentsPage({
               <select name="status" className="rounded-md border border-slate-300 px-3 py-2 text-sm" disabled={!isDatabaseConfigured}>
                 <option value="ACTIVE">启用</option>
                 <option value="INACTIVE">停用</option>
+                <option value="GRADUATED">已毕业</option>
               </select>
             </label>
             <button className="self-end rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white disabled:bg-slate-300" disabled={!isDatabaseConfigured || organizations.length === 0}>
@@ -281,6 +290,7 @@ export default async function StudentsPage({
                 <option value="">全部状态</option>
                 <option value="ACTIVE">启用</option>
                 <option value="INACTIVE">停用</option>
+                <option value="GRADUATED">已毕业</option>
               </select>
             </label>
             <label className="grid gap-1 text-sm font-medium text-slate-700">
@@ -321,20 +331,29 @@ export default async function StudentsPage({
         </form>
 
         <form id="delete-students-form" action={deleteStudents} />
+        <form id="graduate-students-form" action={markStudentsGraduated} />
 
         <div className="flex flex-col gap-3 border-t border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-base font-semibold text-slate-950">学生列表</h2>
             <p className="mt-1 text-sm text-slate-500">
-              勾选无选课、无评教派发的学生后可批量删除；有关联数据的学生会被锁定。
+              勾选学生可批量标记毕业；删除仍仅允许无选课、无评教派发的学生。
             </p>
           </div>
-          <button
-            form="delete-students-form"
-            className="rounded-md border border-rose-200 px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50"
-          >
-            批量删除选中
-          </button>
+          <div className="flex gap-2">
+            <button
+              form="graduate-students-form"
+              className="rounded-md border border-amber-200 px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50"
+            >
+              批量标记毕业
+            </button>
+            <button
+              form="delete-students-form"
+              className="rounded-md border border-rose-200 px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50"
+            >
+              批量删除选中
+            </button>
+          </div>
         </div>
 
         <div className="overflow-x-auto border-t border-slate-200">
@@ -373,6 +392,16 @@ export default async function StudentsPage({
                         title={canDelete ? "选择批量删除" : "已有选课或评教派发，不可批量删除"}
                         className="h-4 w-4 rounded border-slate-300 text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"
                       />
+                      <input
+                        form="graduate-students-form"
+                        type="checkbox"
+                        name="ids"
+                        value={student.id}
+                        disabled={student.status === "GRADUATED"}
+                        aria-label={`选择毕业 ${student.name}`}
+                        title={student.status === "GRADUATED" ? "已毕业" : "选择批量标记毕业"}
+                        className="ml-2 h-4 w-4 rounded border-slate-300 text-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
+                      />
                     </td>
                     <td className="px-4 py-4 text-sm text-slate-700">
                       <div className="font-medium text-slate-900">{student.name}</div>
@@ -388,18 +417,39 @@ export default async function StudentsPage({
                       {student.organization.name}
                     </td>
                     <td className="px-4 py-4 text-sm text-slate-700">
-                      {student.status === "ACTIVE" ? "启用" : "停用"}
+                      {student.status === "ACTIVE"
+                        ? "启用"
+                        : student.status === "GRADUATED"
+                          ? "已毕业"
+                          : "停用"}
                     </td>
                     <td className="px-4 py-4 text-sm text-slate-700">
                       {student._count.enrollments} / {student._count.assignments}
                     </td>
                     <td className="px-4 py-4 text-sm text-slate-700">
-                      <form action={deleteStudent}>
-                        <input type="hidden" name="id" value={student.id} />
-                        <button disabled={!canDelete} title={canDelete ? "删除学生" : "已有选课或评教派发，不可删除"} className="text-sm font-medium text-rose-700 disabled:text-slate-400">
-                          删除
-                        </button>
-                      </form>
+                      <div className="flex flex-col gap-2">
+                        {student.status === "GRADUATED" ? (
+                          <form action={restoreGraduatedStudent}>
+                            <input type="hidden" name="id" value={student.id} />
+                            <button className="text-sm font-medium text-sky-700">
+                              恢复启用
+                            </button>
+                          </form>
+                        ) : (
+                          <form action={markStudentGraduated}>
+                            <input type="hidden" name="id" value={student.id} />
+                            <button className="text-sm font-medium text-amber-700">
+                              标记毕业
+                            </button>
+                          </form>
+                        )}
+                        <form action={deleteStudent}>
+                          <input type="hidden" name="id" value={student.id} />
+                          <button disabled={!canDelete} title={canDelete ? "删除学生" : "已有选课或评教派发，不可删除"} className="text-sm font-medium text-rose-700 disabled:text-slate-400">
+                            删除
+                          </button>
+                        </form>
+                      </div>
                     </td>
                   </tr>
                 );

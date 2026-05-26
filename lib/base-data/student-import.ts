@@ -8,7 +8,7 @@ export type StudentImportRow = {
   grade?: string;
   major?: string;
   organization: string;
-  status: "ACTIVE" | "INACTIVE";
+  status: "ACTIVE" | "INACTIVE" | "GRADUATED";
 };
 
 export type StudentListQuery = {
@@ -18,8 +18,10 @@ export type StudentListQuery = {
   page: number;
   pageSize: 30 | 60 | 100;
   q?: string;
-  status?: "ACTIVE" | "INACTIVE";
+  status?: "ACTIVE" | "INACTIVE" | "GRADUATED";
 };
+
+const studentStatuses = ["ACTIVE", "INACTIVE", "GRADUATED"] as const;
 
 function parseCsvLine(line: string) {
   const cells: string[] = [];
@@ -110,8 +112,8 @@ export function parseStudentImportCsv(content: string): StudentImportRow[] {
       throw new Error(`第 ${rowNumber} 行缺少姓名、邮箱、学号或组织。`);
     }
 
-    if (row.status !== "ACTIVE" && row.status !== "INACTIVE") {
-      throw new Error(`第 ${rowNumber} 行状态只能是 ACTIVE 或 INACTIVE。`);
+    if (!studentStatuses.includes(row.status as StudentImportRow["status"])) {
+      throw new Error(`第 ${rowNumber} 行状态只能是 ACTIVE、INACTIVE 或 GRADUATED。`);
     }
 
     return row as StudentImportRow;
@@ -135,7 +137,8 @@ export function parseStudentListQuery(
     page: Number.isFinite(rawPage) && rawPage > 0 ? Math.trunc(rawPage) : 1,
     pageSize,
     q: optionalQueryText(searchParams.q),
-    status:
-      status === "ACTIVE" || status === "INACTIVE" ? status : undefined,
+    status: studentStatuses.includes(status as StudentImportRow["status"])
+      ? (status as StudentImportRow["status"])
+      : undefined,
   };
 }

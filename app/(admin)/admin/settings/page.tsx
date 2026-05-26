@@ -3,7 +3,9 @@ import { StatCard } from "@/components/stat-card";
 import { StatusBadge } from "@/components/status-badge";
 import { updateAdminSettings, updateUserRole } from "@/app/actions/admin";
 import { loadAdminSettings } from "@/lib/admin/settings-store";
+import { canUpdateUserRole } from "@/lib/admin/user-role-permissions";
 import { requireRole } from "@/lib/auth/guards";
+import type { Role } from "@/lib/generated/prisma/enums";
 import {
   ADMIN_ROLES,
   emptyWhenDatabaseMissing,
@@ -218,7 +220,7 @@ export default async function AdminSettingsPage({
 }: {
   searchParams: SettingsPageSearchParams;
 }) {
-  await requireRole([...ADMIN_ROLES]);
+  const session = await requireRole([...ADMIN_ROLES]);
   const userQuery = parseUserPermissionQuery(await searchParams);
   const {
     auditLogs,
@@ -345,8 +347,13 @@ export default async function AdminSettingsPage({
                 </tr>
               ) : null}
               {users.map((user) => {
-              const isLastSuperAdmin =
-                user.role === "SUPER_ADMIN" && superAdminCount <= 1;
+              const rolePermission = canUpdateUserRole({
+                actorRole: session.user.role,
+                nextRole: user.role as Role,
+                superAdminCount,
+                targetRole: user.role as Role,
+              });
+              const roleChangeDisabled = !rolePermission.allowed;
 
               return (
                 <tr key={user.id}>
@@ -372,29 +379,38 @@ export default async function AdminSettingsPage({
                       <select
                         name="role"
                         defaultValue={user.role}
-                        disabled={isLastSuperAdmin}
-                        title={
-                          isLastSuperAdmin
-                            ? "最后一个超级管理员不可降权"
-                            : "选择新角色"
-                        }
+                        disabled={roleChangeDisabled}
+                        title={roleChangeDisabled ? rolePermission.reason : "选择新角色"}
                         className="rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-400"
                       >
-                        {Object.entries(roleLabels).map(([role, label]) => (
-                          <option key={role} value={role}>
+                        {Object.entries(roleLabels).map(([role, label]) => {
+                          const optionPermission = canUpdateUserRole({
+                            actorRole: session.user.role,
+                            nextRole: role as Role,
+                            superAdminCount,
+                            targetRole: user.role as Role,
+                          });
+
+                          return (
+                          <option
+                            key={role}
+                            value={role}
+                            disabled={!optionPermission.allowed}
+                          >
                             {label}
                           </option>
-                        ))}
+                          );
+                        })}
                       </select>
                       <button
-                        disabled={isLastSuperAdmin}
+                        disabled={roleChangeDisabled}
                         className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 disabled:text-slate-400"
                       >
                         保存角色
                       </button>
-                      {isLastSuperAdmin ? (
+                      {roleChangeDisabled ? (
                         <span className="text-xs text-amber-700">
-                          最后一个超级管理员
+                          {rolePermission.reason}
                         </span>
                       ) : null}
                     </form>

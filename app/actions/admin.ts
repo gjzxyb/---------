@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { saveAdminSettings } from "@/lib/admin/settings-store";
+import { canUpdateUserRole } from "@/lib/admin/user-role-permissions";
+import { createSafeAuditLog } from "@/lib/audit-log";
 import { ADMIN_ROLES, isDatabaseConfigured } from "@/lib/demo-data";
 import {
   adminSettingsSchema,
@@ -249,7 +251,11 @@ export async function generateEvaluationAssignments(formData: FormData) {
   const [enrollments, existingAssignments] = await Promise.all([
     prisma.enrollment.findMany({
       where: teachingClassWhere,
-      select: { studentId: true, teachingClassId: true },
+      select: {
+        student: { select: { status: true } },
+        studentId: true,
+        teachingClassId: true,
+      },
       orderBy: [{ teachingClassId: "asc" }, { studentId: "asc" }],
     }),
     prisma.evaluationAssignment.findMany({
@@ -259,7 +265,11 @@ export async function generateEvaluationAssignments(formData: FormData) {
   ]);
 
   const drafts = buildAssignmentDrafts({
-    enrollments,
+    enrollments: enrollments.map((enrollment) => ({
+      studentId: enrollment.studentId,
+      studentStatus: enrollment.student.status,
+      teachingClassId: enrollment.teachingClassId,
+    })),
     existingAssignments,
     teachingClassIds: scopedTeachingClassIds,
     taskId: parsedGeneration.taskId,
@@ -318,14 +328,12 @@ export async function remindPendingEvaluationAssignments(formData: FormData) {
     },
   });
 
-  await prisma.auditLog.create({
-    data: {
-      actorId: session.user.id,
-      action: "REMIND_PENDING_EVALUATION_ASSIGNMENTS",
-      entity: "EvaluationTask",
-      entityId: parsedTask.taskId,
-      metadata: { pendingCount },
-    },
+  await createSafeAuditLog(prisma, {
+    actorId: session.user.id,
+    action: "REMIND_PENDING_EVALUATION_ASSIGNMENTS",
+    entity: "EvaluationTask",
+    entityId: parsedTask.taskId,
+    metadata: { pendingCount },
   });
 
   revalidatePath("/admin/tasks");
@@ -405,17 +413,15 @@ export async function updateAdminSettings(formData: FormData) {
 
   if (isDatabaseConfigured()) {
     const { prisma } = await import("@/lib/db");
-    await prisma.auditLog.create({
-      data: {
-        actorId: session.user.id,
-        action: "UPDATE_ADMIN_SETTINGS",
-        entity: "AdminSettings",
-        metadata: {
-          academicYear: parsedSettings.academicYear,
-          currentTerm: parsedSettings.currentTerm,
-          resultReleaseMode: parsedSettings.resultReleaseMode,
-          smallSampleThreshold: parsedSettings.smallSampleThreshold,
-        },
+    await createSafeAuditLog(prisma, {
+      actorId: session.user.id,
+      action: "UPDATE_ADMIN_SETTINGS",
+      entity: "AdminSettings",
+      metadata: {
+        academicYear: parsedSettings.academicYear,
+        currentTerm: parsedSettings.currentTerm,
+        resultReleaseMode: parsedSettings.resultReleaseMode,
+        smallSampleThreshold: parsedSettings.smallSampleThreshold,
       },
     });
   }
@@ -424,7 +430,7 @@ export async function updateAdminSettings(formData: FormData) {
 }
 
 export async function updateUserRole(formData: FormData) {
-  const session = await requireRole(["SUPER_ADMIN"]);
+  const session = await requireRole(["SUPER_ADMIN", "SCHOOL_ADMIN"]);
   const parsedRole = userRoleUpdateSchema.parse({
     userId: String(formData.get("userId") ?? ""),
     role: String(formData.get("role") ?? ""),
@@ -444,36 +450,36 @@ export async function updateUserRole(formData: FormData) {
     return;
   }
 
-  if (targetUser.role === "SUPER_ADMIN" && parsedRole.role !== "SUPER_ADMIN") {
-    const superAdminCount = await prisma.user.count({
-      where: { role: "SUPER_ADMIN" },
-    });
+  const superAdminCount = await prisma.user.count({
+    where: { role: "SUPER_ADMIN" },
+  });
+  const permission = canUpdateUserRole({
+    actorRole: session.user.role,
+    nextRole: parsedRole.role,
+    superAdminCount,
+    targetRole: targetUser.role,
+  });
 
-    if (superAdminCount <= 1) {
-      throw new Error("Cannot demote the last super administrator.");
-    }
+  if (!permission.allowed) {
+    throw new Error(permission.reason);
   }
 
-  await prisma.$transaction([
-    prisma.user.update({
-      where: { id: parsedRole.userId },
-      data: { role: parsedRole.role },
-    }),
-    prisma.auditLog.create({
-      data: {
-        actorId: session.user.id,
-        action: "UPDATE_USER_ROLE",
-        entity: "User",
-        entityId: parsedRole.userId,
-        metadata: {
-          fromRole: targetUser.role,
-          targetEmail: targetUser.email,
-          targetName: targetUser.name,
-          toRole: parsedRole.role,
-        },
-      },
-    }),
-  ]);
+  await prisma.user.update({
+    where: { id: parsedRole.userId },
+    data: { role: parsedRole.role },
+  });
+  await createSafeAuditLog(prisma, {
+    actorId: session.user.id,
+    action: "UPDATE_USER_ROLE",
+    entity: "User",
+    entityId: parsedRole.userId,
+    metadata: {
+      fromRole: targetUser.role,
+      targetEmail: targetUser.email,
+      targetName: targetUser.name,
+      toRole: parsedRole.role,
+    },
+  });
 
   revalidatePath("/admin/settings");
 }

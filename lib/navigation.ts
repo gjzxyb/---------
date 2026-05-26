@@ -25,7 +25,10 @@ export const navigationTree: NavigationGroup[] = [
   },
   {
     title: "学生评教",
-    items: [{ title: "我的评教", href: "/student/evaluations", roles: ["STUDENT"] }],
+    items: [
+      { title: "我的评教", href: "/student/evaluations", roles: ["STUDENT"] },
+      { title: "我的选课", href: "/student/courses", roles: ["STUDENT"] },
+    ],
   },
   {
     title: "教师发展",

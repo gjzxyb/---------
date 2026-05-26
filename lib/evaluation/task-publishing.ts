@@ -7,6 +7,7 @@ import {
 type EnrollmentInput = {
   studentId: string;
   teachingClassId: string;
+  studentStatus?: string;
 };
 
 type ExistingAssignmentInput = {
@@ -56,6 +57,10 @@ export function buildAssignmentDrafts({
   );
 
   return enrollments.flatMap((enrollment) => {
+    if (enrollment.studentStatus && enrollment.studentStatus !== "ACTIVE") {
+      return [];
+    }
+
     const isSelected =
       selectedClassIds.size === 0 ||
       selectedClassIds.has(enrollment.teachingClassId);

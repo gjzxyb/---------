@@ -1,7 +1,7 @@
 {
-  "academicYear": "2026-2027",
+  "academicYear": "2025-2026",
   "anonymousSubmission": true,
-  "currentTerm": "2026-2027-1",
+  "currentTerm": "2025-2026-2",
   "dataIsolation": true,
   "dictionaryParametersText": "题型=SCALE / TEXT\r\n任务状态=DRAFT / OPEN / CLOSED / ARCHIVED\r\n派发状态=PENDING / IN_PROGRESS / SUBMITTED / EXPIRED\r\n组织类型=SCHOOL / DEPARTMENT / CLASS",
   "exportWatermark": true,
@@ -13,7 +13,7 @@
     "邮件"
   ],
   "ssoProvider": "CAS / OAuth2",
-  "termEndDate": "2027-02-01",
-  "termStartDate": "2026-09-01",
+  "termEndDate": "2026-07-15",
+  "termStartDate": "2025-09-01",
   "interfaceNote": "预留统一认证、教务系统、LMS 和消息平台接口配置。"
 }

@@ -19,6 +19,7 @@ enum Role {
 enum UserStatus {
   ACTIVE
   INACTIVE
+  GRADUATED
 }
 
 enum OrgType {
