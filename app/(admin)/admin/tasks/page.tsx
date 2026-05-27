@@ -26,6 +26,7 @@ import {
   formatSubmissionStatusText,
   isTaskVisibleInRecoveryDetail,
   nextRestoredTaskStatus,
+  selectTeachingClassesForTaskTerm,
   summarizeAssignmentsByStatus,
 } from "@/lib/evaluation/task-publishing";
 
@@ -483,11 +484,10 @@ export default async function AdminTasksPage() {
           const responseCount = task.assignments.filter(
             (assignment) => assignment.response !== null,
           ).length;
-          const termTeachingClasses = teachingClasses.filter(
-            (teachingClass) => teachingClass.term === task.term,
+          const classOptions = selectTeachingClassesForTaskTerm(
+            teachingClasses,
+            task.term,
           );
-          const classOptions =
-            termTeachingClasses.length > 0 ? termTeachingClasses : teachingClasses;
           const organizationOptions = organizations
             .map((organization) => {
               const scopeIds = collectOrganizationScopeIds(

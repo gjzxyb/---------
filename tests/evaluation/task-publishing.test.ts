@@ -6,6 +6,7 @@ import {
   isTaskVisibleInRecoveryDetail,
   nextRestoredTaskStatus,
   resolveTeachingClassScope,
+  selectTeachingClassesForTaskTerm,
   summarizeAssignmentsByStatus,
 } from "../../lib/evaluation/task-publishing";
 
@@ -100,6 +101,25 @@ describe("resolveTeachingClassScope", () => {
     });
 
     expect(scope).toEqual(["class-1", "class-3"]);
+  });
+});
+
+describe("selectTeachingClassesForTaskTerm", () => {
+  const teachingClasses = [
+    { id: "class-1", term: "2025-2026-1" },
+    { id: "class-2", term: "2025-2026-2" },
+  ];
+
+  it("uses teaching classes from the exact task term when available", () => {
+    expect(
+      selectTeachingClassesForTaskTerm(teachingClasses, "2025-2026-2"),
+    ).toEqual([{ id: "class-2", term: "2025-2026-2" }]);
+  });
+
+  it("falls back to all teaching classes when no exact task term exists", () => {
+    expect(
+      selectTeachingClassesForTaskTerm(teachingClasses, "2026 春季学期"),
+    ).toEqual(teachingClasses);
   });
 });
 

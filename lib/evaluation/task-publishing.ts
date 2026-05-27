@@ -31,6 +31,10 @@ type TeachingClassScopeInput = {
   organizationId: string | null;
 };
 
+type TeachingClassTermInput = {
+  term: string;
+};
+
 export type AssignmentDraft = {
   taskId: string;
   evaluatorId: string;
@@ -140,6 +144,16 @@ export function resolveTeachingClassScope({
   }
 
   return Array.from(selectedClassIds);
+}
+
+export function selectTeachingClassesForTaskTerm<
+  TTeachingClass extends TeachingClassTermInput,
+>(teachingClasses: TTeachingClass[], taskTerm: string) {
+  const termTeachingClasses = teachingClasses.filter(
+    (teachingClass) => teachingClass.term === taskTerm,
+  );
+
+  return termTeachingClasses.length > 0 ? termTeachingClasses : teachingClasses;
 }
 
 export function formatSubmissionStatusText(value: Date | null | undefined) {

@@ -23,6 +23,7 @@ import {
 import {
   buildAssignmentDrafts,
   resolveTeachingClassScope,
+  selectTeachingClassesForTaskTerm,
 } from "@/lib/evaluation/task-publishing";
 import { requireRole } from "@/lib/auth/guards";
 
@@ -223,15 +224,18 @@ export async function generateEvaluationAssignments(formData: FormData) {
     throw new Error("Evaluation task was not found.");
   }
 
-  const [scopeTeachingClasses, organizations] = await Promise.all([
+  const [allScopeTeachingClasses, organizations] = await Promise.all([
     prisma.teachingClass.findMany({
-      where: { term: task.term },
-      select: { id: true, organizationId: true },
+      select: { id: true, organizationId: true, term: true },
     }),
     prisma.organization.findMany({
       select: { id: true, parentId: true },
     }),
   ]);
+  const scopeTeachingClasses = selectTeachingClassesForTaskTerm(
+    allScopeTeachingClasses,
+    task.term,
+  );
   const scopedTeachingClassIds = resolveTeachingClassScope({
     organizations,
     selectedOrganizationIds: parsedGeneration.organizationIds,
