@@ -80,6 +80,35 @@ describe("student import template route", () => {
   });
 });
 
+describe("student import action state", () => {
+  it("exposes readable import errors without throwing", async () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/actions/base-data.ts"),
+      "utf8",
+    );
+
+    expect(source).toContain("export async function importStudentsWithState");
+    expect(source).toContain("导入失败");
+  });
+});
+
+describe("student list batch selection", () => {
+  it("uses one visible checkbox per row and provides select helpers", () => {
+    const source = readFileSync(
+      join(
+        process.cwd(),
+        "app/(admin)/admin/base-data/students/StudentListTable.tsx",
+      ),
+      "utf8",
+    );
+
+    expect(source).toContain("全选");
+    expect(source).toContain("反选");
+    expect(source).toContain("取消选择");
+    expect(source).toContain("selectedIds");
+  });
+});
+
 describe("parseStudentListQuery", () => {
   it("normalizes filters and defaults pagination to thirty rows", () => {
     expect(

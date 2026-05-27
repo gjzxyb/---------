@@ -26,6 +26,21 @@ import { ADMIN_ROLES } from "@/lib/demo-data";
 
 const defaultPassword = "Password123!";
 
+export type BaseDataActionState = {
+  ok: boolean;
+  message: string;
+};
+
+const initialImportErrorMessage = "导入失败，请检查文件内容。";
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return initialImportErrorMessage;
+}
+
 function baseDataPaths() {
   [
     "/admin/base-data",
@@ -268,6 +283,25 @@ export async function importStudents(formData: FormData) {
   }
 
   baseDataPaths();
+}
+
+export async function importStudentsWithState(
+  _previousState: BaseDataActionState,
+  formData: FormData,
+): Promise<BaseDataActionState> {
+  try {
+    await importStudents(formData);
+
+    return {
+      ok: true,
+      message: "学生导入完成。若部分记录未出现，请检查邮箱、学号是否重复，组织是否匹配。",
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: `导入失败：${getErrorMessage(error)}`,
+    };
+  }
 }
 
 export async function deleteStudent(formData: FormData) {

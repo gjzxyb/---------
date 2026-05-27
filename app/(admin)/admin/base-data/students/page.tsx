@@ -4,13 +4,9 @@ import { StatCard } from "@/components/stat-card";
 import { StatusBadge } from "@/components/status-badge";
 import {
   createStudent,
-  deleteStudent,
-  deleteStudents,
-  importStudents,
-  markStudentGraduated,
-  markStudentsGraduated,
-  restoreGraduatedStudent,
 } from "@/app/actions/base-data";
+import { StudentImportForm } from "@/app/(admin)/admin/base-data/students/StudentImportForm";
+import { StudentListTable } from "@/app/(admin)/admin/base-data/students/StudentListTable";
 import { requireRole } from "@/lib/auth/guards";
 import { parseStudentListQuery } from "@/lib/base-data/student-import";
 import {
@@ -226,42 +222,7 @@ export default async function StudentsPage({
           </div>
         </form>
 
-        <form action={importStudents} className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h2 className="text-base font-semibold text-slate-950">批量导入学生</h2>
-              <p className="mt-1 text-sm text-slate-600">
-                支持 CSV，字段为姓名、邮箱、学号、年级、专业、组织、状态。
-              </p>
-            </div>
-            <Link
-              href="/admin/base-data/students/import-template"
-              className="text-sm font-medium text-sky-700"
-            >
-              下载 CSV 模板
-            </Link>
-          </div>
-          <label className="mt-4 grid gap-1 text-sm font-medium text-slate-700">
-            导入文件
-            <input
-              name="file"
-              type="file"
-              accept=".csv,text/csv"
-              required
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
-              disabled={!isDatabaseConfigured}
-            />
-          </label>
-          <p className="mt-3 text-xs leading-5 text-slate-500">
-            组织可填写组织名称或组织 ID；邮箱或学号已存在的记录会自动跳过。
-          </p>
-          <button
-            className="mt-4 rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white disabled:bg-slate-300"
-            disabled={!isDatabaseConfigured}
-          >
-            导入学生
-          </button>
-        </form>
+        <StudentImportForm isDatabaseConfigured={isDatabaseConfigured} />
       </section>
 
       <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
@@ -330,133 +291,7 @@ export default async function StudentsPage({
           </div>
         </form>
 
-        <form id="delete-students-form" action={deleteStudents} />
-        <form id="graduate-students-form" action={markStudentsGraduated} />
-
-        <div className="flex flex-col gap-3 border-t border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-base font-semibold text-slate-950">学生列表</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              勾选学生可批量标记毕业；删除仍仅允许无选课、无评教派发的学生。
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              form="graduate-students-form"
-              className="rounded-md border border-amber-200 px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50"
-            >
-              批量标记毕业
-            </button>
-            <button
-              form="delete-students-form"
-              className="rounded-md border border-rose-200 px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50"
-            >
-              批量删除选中
-            </button>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto border-t border-slate-200">
-          <table className="min-w-full divide-y divide-slate-200">
-            <thead className="bg-slate-50">
-              <tr>
-                {["选择", "学生", "学号", "年级/专业", "组织", "状态", "选课/评教", "操作"].map((header) => (
-                  <th key={header} className="px-4 py-3 text-left text-xs font-semibold text-slate-500">
-                    {header}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 bg-white">
-              {students.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-sm text-slate-500">
-                    暂无学生数据。
-                  </td>
-                </tr>
-              ) : null}
-              {students.map((student) => {
-                const canDelete =
-                  student._count.enrollments === 0 && student._count.assignments === 0;
-
-                return (
-                  <tr key={student.id}>
-                    <td className="px-4 py-4 text-sm text-slate-700">
-                      <input
-                        form="delete-students-form"
-                        type="checkbox"
-                        name="ids"
-                        value={student.id}
-                        disabled={!canDelete}
-                        aria-label={`选择删除 ${student.name}`}
-                        title={canDelete ? "选择批量删除" : "已有选课或评教派发，不可批量删除"}
-                        className="h-4 w-4 rounded border-slate-300 text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"
-                      />
-                      <input
-                        form="graduate-students-form"
-                        type="checkbox"
-                        name="ids"
-                        value={student.id}
-                        disabled={student.status === "GRADUATED"}
-                        aria-label={`选择毕业 ${student.name}`}
-                        title={student.status === "GRADUATED" ? "已毕业" : "选择批量标记毕业"}
-                        className="ml-2 h-4 w-4 rounded border-slate-300 text-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
-                      />
-                    </td>
-                    <td className="px-4 py-4 text-sm text-slate-700">
-                      <div className="font-medium text-slate-900">{student.name}</div>
-                      <div className="mt-1 text-xs text-slate-500">{student.email}</div>
-                    </td>
-                    <td className="px-4 py-4 text-sm text-slate-700">
-                      {student.studentProfile?.studentNo ?? "未建档"}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-slate-700">
-                      {student.studentProfile?.grade ?? "-"} / {student.studentProfile?.major ?? "-"}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-slate-700">
-                      {student.organization.name}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-slate-700">
-                      {student.status === "ACTIVE"
-                        ? "启用"
-                        : student.status === "GRADUATED"
-                          ? "已毕业"
-                          : "停用"}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-slate-700">
-                      {student._count.enrollments} / {student._count.assignments}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-slate-700">
-                      <div className="flex flex-col gap-2">
-                        {student.status === "GRADUATED" ? (
-                          <form action={restoreGraduatedStudent}>
-                            <input type="hidden" name="id" value={student.id} />
-                            <button className="text-sm font-medium text-sky-700">
-                              恢复启用
-                            </button>
-                          </form>
-                        ) : (
-                          <form action={markStudentGraduated}>
-                            <input type="hidden" name="id" value={student.id} />
-                            <button className="text-sm font-medium text-amber-700">
-                              标记毕业
-                            </button>
-                          </form>
-                        )}
-                        <form action={deleteStudent}>
-                          <input type="hidden" name="id" value={student.id} />
-                          <button disabled={!canDelete} title={canDelete ? "删除学生" : "已有选课或评教派发，不可删除"} className="text-sm font-medium text-rose-700 disabled:text-slate-400">
-                            删除
-                          </button>
-                        </form>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <StudentListTable students={students} />
 
         <nav className="flex flex-col gap-3 border-t border-slate-200 p-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
           <div>
