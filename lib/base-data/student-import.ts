@@ -22,6 +22,17 @@ export type StudentListQuery = {
 };
 
 const studentStatuses = ["ACTIVE", "INACTIVE", "GRADUATED"] as const;
+const studentStatusLabels: Record<string, StudentImportRow["status"]> = {
+  ACTIVE: "ACTIVE",
+  INACTIVE: "INACTIVE",
+  GRADUATED: "GRADUATED",
+  停用: "INACTIVE",
+  已停用: "INACTIVE",
+  已毕业: "GRADUATED",
+  毕业: "GRADUATED",
+  启用: "ACTIVE",
+  正常: "ACTIVE",
+};
 
 function parseCsvLine(line: string) {
   const cells: string[] = [];
@@ -97,14 +108,15 @@ export function parseStudentImportCsv(content: string): StudentImportRow[] {
     const cells = parseCsvLine(line);
     const rowNumber = lineIndex + 2;
     const getCell = (header: string) => cells[headerIndex.get(header) ?? -1] ?? "";
-    const status = getCell("状态") || "ACTIVE";
+    const rawStatus = getCell("状态") || "ACTIVE";
+    const status = studentStatusLabels[rawStatus.toUpperCase()] ?? studentStatusLabels[rawStatus];
     const row = {
       email: getCell("邮箱"),
       grade: getCell("年级") || undefined,
       major: getCell("专业") || undefined,
       name: getCell("姓名"),
       organization: getCell("组织"),
-      status,
+      status: status ?? rawStatus,
       studentNo: getCell("学号"),
     };
 
@@ -113,7 +125,9 @@ export function parseStudentImportCsv(content: string): StudentImportRow[] {
     }
 
     if (!studentStatuses.includes(row.status as StudentImportRow["status"])) {
-      throw new Error(`第 ${rowNumber} 行状态只能是 ACTIVE、INACTIVE 或 GRADUATED。`);
+      throw new Error(
+        `第 ${rowNumber} 行状态只能是 ACTIVE、INACTIVE、GRADUATED、启用、停用或已毕业。`,
+      );
     }
 
     return row as StudentImportRow;

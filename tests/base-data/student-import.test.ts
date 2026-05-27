@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import {
   parseStudentImportCsv,
@@ -45,10 +47,36 @@ describe("parseStudentImportCsv", () => {
     ).toBe("GRADUATED");
   });
 
+  it("accepts Chinese status labels from edited templates", () => {
+    const rows = parseStudentImportCsv(
+      "姓名,邮箱,学号,年级,专业,组织,状态\n赵六,zhaoliu@example.edu,S004,2026,计算机,高一一班,启用\n钱七,qianqi@example.edu,S005,2026,计算机,高一一班,停用\n孙八,sunba@example.edu,S006,2022,计算机,高三一班,已毕业",
+    );
+
+    expect(rows.map((row) => row.status)).toEqual([
+      "ACTIVE",
+      "INACTIVE",
+      "GRADUATED",
+    ]);
+  });
+
   it("exports a csv template with the expected headers", () => {
     expect(STUDENT_IMPORT_TEMPLATE_CSV.split("\n")[0]).toBe(
       "姓名,邮箱,学号,年级,专业,组织,状态",
     );
+  });
+});
+
+describe("student import template route", () => {
+  it("accepts POST for import compatibility", () => {
+    const routeSource = readFileSync(
+      join(
+        process.cwd(),
+        "app/(admin)/admin/base-data/students/import-template/route.ts",
+      ),
+      "utf8",
+    );
+
+    expect(routeSource).toContain("export async function POST");
   });
 });
 
