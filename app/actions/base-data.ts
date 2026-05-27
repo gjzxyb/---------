@@ -7,8 +7,8 @@ import { requireRole } from "@/lib/auth/guards";
 import { hashPassword } from "@/lib/auth/password";
 import {
   parseEnrollmentImportCsv,
-  planGradePrefixEnrollments,
   parseTeachingClassImportCsv,
+  summarizeGradePrefixEnrollmentPlan,
 } from "@/lib/base-data/class-enrollment";
 import { parseCourseImportCsv } from "@/lib/base-data/course-import";
 import {
@@ -992,7 +992,7 @@ export async function generateEnrollmentsByGradePrefixWithState(
         select: { studentId: true, teachingClassId: true },
       }),
     ]);
-    const plannedEnrollments = planGradePrefixEnrollments({
+    const planSummary = summarizeGradePrefixEnrollmentPlan({
       existingEnrollments,
       students: students.map((student) => ({
         id: student.id,
@@ -1000,6 +1000,7 @@ export async function generateEnrollmentsByGradePrefixWithState(
       })),
       teachingClasses,
     });
+    const plannedEnrollments = planSummary.plannedEnrollments;
 
     if (plannedEnrollments.length > 0) {
       await prisma.enrollment.createMany({
@@ -1012,7 +1013,17 @@ export async function generateEnrollmentsByGradePrefixWithState(
 
     return {
       ok: true,
-      message: `生成完成：新增 ${plannedEnrollments.length} 条选课记录。规则为学生年级匹配教学班名称前 7 位。`,
+      message: [
+        `生成完成：新增 ${plannedEnrollments.length} 条选课记录。`,
+        `匹配到 ${planSummary.matchedStudentCount} 名学生、${planSummary.matchedClassCount} 个教学班。`,
+        planSummary.unmatchedClassPrefixes.length > 0
+          ? `未匹配到学生年级的教学班前缀：${planSummary.unmatchedClassPrefixes
+              .slice(0, 8)
+              .join("、")}${
+              planSummary.unmatchedClassPrefixes.length > 8 ? " 等" : ""
+            }。`
+          : "所有教学班前缀均有对应学生年级。",
+      ].join(""),
     };
   } catch (error) {
     return {

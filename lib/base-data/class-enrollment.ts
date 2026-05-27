@@ -47,6 +47,13 @@ export type PlannedEnrollment = {
   teachingClassId: string;
 };
 
+export type GradePrefixEnrollmentPlanSummary = {
+  matchedClassCount: number;
+  matchedStudentCount: number;
+  plannedEnrollments: PlannedEnrollment[];
+  unmatchedClassPrefixes: string[];
+};
+
 const teachingClassGradePrefixLength = 7;
 
 function parseCsvLine(line: string) {
@@ -273,4 +280,48 @@ export function planGradePrefixEnrollments({
         return !existingKeys.has(key);
       });
   });
+}
+
+export function summarizeGradePrefixEnrollmentPlan(
+  input: GradePrefixEnrollmentPlanInput,
+): GradePrefixEnrollmentPlanSummary {
+  const studentGrades = new Set(
+    input.students.flatMap((student) => {
+      const grade = student.grade?.trim();
+
+      return grade ? [grade] : [];
+    }),
+  );
+  const classPrefixes = Array.from(
+    new Set(
+      input.teachingClasses.flatMap((teachingClass) => {
+        const prefix = teachingClass.name
+          .slice(0, teachingClassGradePrefixLength)
+          .trim();
+
+        return prefix ? [prefix] : [];
+      }),
+    ),
+  );
+  const matchedClassPrefixes = new Set(
+    classPrefixes.filter((prefix) => studentGrades.has(prefix)),
+  );
+  const plannedEnrollments = planGradePrefixEnrollments(input);
+
+  return {
+    matchedClassCount: input.teachingClasses.filter((teachingClass) =>
+      matchedClassPrefixes.has(
+        teachingClass.name.slice(0, teachingClassGradePrefixLength).trim(),
+      ),
+    ).length,
+    matchedStudentCount: input.students.filter((student) => {
+      const grade = student.grade?.trim();
+
+      return grade ? matchedClassPrefixes.has(grade) : false;
+    }).length,
+    plannedEnrollments,
+    unmatchedClassPrefixes: classPrefixes.filter(
+      (prefix) => !studentGrades.has(prefix),
+    ),
+  };
 }

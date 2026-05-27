@@ -10,6 +10,7 @@ import {
   parseEnrollmentListQuery,
   planGradePrefixEnrollments,
   parseTeachingClassImportCsv,
+  summarizeGradePrefixEnrollmentPlan,
 } from "../../lib/base-data/class-enrollment";
 
 describe("parseTeachingClassImportCsv", () => {
@@ -126,6 +127,23 @@ describe("planGradePrefixEnrollments", () => {
       { studentId: "student-2", teachingClassId: "class-2" },
       { studentId: "student-3", teachingClassId: "class-3" },
     ]);
+  });
+
+  it("reports class prefixes that do not have matching student grades", () => {
+    expect(
+      summarizeGradePrefixEnrollmentPlan({
+        existingEnrollments: [],
+        students: [{ id: "student-1", grade: "G202801" }],
+        teachingClasses: [
+          { id: "class-1", name: "G202801语文教学班" },
+          { id: "class-2", name: "G202619_LZ101" },
+        ],
+      }),
+    ).toMatchObject({
+      matchedClassCount: 1,
+      matchedStudentCount: 1,
+      unmatchedClassPrefixes: ["G202619"],
+    });
   });
 });
 
