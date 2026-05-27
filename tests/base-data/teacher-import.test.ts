@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import {
   parseTeacherImportCsv,
@@ -66,5 +68,19 @@ describe("parseTeacherListQuery", () => {
   it("caps page size to a controlled set", () => {
     expect(parseTeacherListQuery({ pageSize: "200" }).pageSize).toBe(30);
     expect(parseTeacherListQuery({ pageSize: "60" }).pageSize).toBe(60);
+  });
+});
+
+describe("teacher import template route", () => {
+  it("accepts POST for import compatibility", () => {
+    const routeSource = readFileSync(
+      join(
+        process.cwd(),
+        "app/(admin)/admin/base-data/teachers/import-template/route.ts",
+      ),
+      "utf8",
+    );
+
+    expect(routeSource).toContain("export async function POST");
   });
 });

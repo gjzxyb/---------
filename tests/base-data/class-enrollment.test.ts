@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import {
   ENROLLMENT_IMPORT_TEMPLATE_CSV,
@@ -98,5 +100,27 @@ describe("class and enrollment list queries", () => {
       enrollmentPageSize: 30,
       enrollmentQ: "张三",
     });
+  });
+});
+
+describe("class import template routes", () => {
+  it("accepts POST for teaching class and enrollment import compatibility", () => {
+    const teachingClassRoute = readFileSync(
+      join(
+        process.cwd(),
+        "app/(admin)/admin/base-data/classes/class-import-template/route.ts",
+      ),
+      "utf8",
+    );
+    const enrollmentRoute = readFileSync(
+      join(
+        process.cwd(),
+        "app/(admin)/admin/base-data/classes/import-template/route.ts",
+      ),
+      "utf8",
+    );
+
+    expect(teachingClassRoute).toContain("export async function POST");
+    expect(enrollmentRoute).toContain("export async function POST");
   });
 });
