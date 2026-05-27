@@ -119,6 +119,37 @@ export async function deleteCourse(formData: FormData) {
   baseDataPaths();
 }
 
+export async function deleteCourses(formData: FormData) {
+  await requireRole([...ADMIN_ROLES]);
+  const rawIds = formData.getAll("ids").map((value) => String(value));
+
+  if (rawIds.length === 0) {
+    baseDataPaths();
+    return;
+  }
+
+  const { ids } = idsSchema.parse({ ids: rawIds });
+  const { prisma } = await import("@/lib/db");
+  const courses = await prisma.course.findMany({
+    where: { id: { in: ids } },
+    select: {
+      id: true,
+      _count: { select: { teachingClasses: true } },
+    },
+  });
+  const deletableIds = courses
+    .filter((course) => course._count.teachingClasses === 0)
+    .map((course) => course.id);
+
+  if (deletableIds.length === 0) {
+    baseDataPaths();
+    return;
+  }
+
+  await prisma.course.deleteMany({ where: { id: { in: deletableIds } } });
+  baseDataPaths();
+}
+
 export async function importCourses(formData: FormData) {
   await requireRole([...ADMIN_ROLES]);
   const file = formData.get("file");
@@ -176,6 +207,25 @@ export async function importCourses(formData: FormData) {
   }
 
   baseDataPaths();
+}
+
+export async function importCoursesWithState(
+  _previousState: BaseDataActionState,
+  formData: FormData,
+): Promise<BaseDataActionState> {
+  try {
+    await importCourses(formData);
+
+    return {
+      ok: true,
+      message: "课程导入完成。若部分记录未出现，请检查课程代码是否重复，组织是否匹配。",
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: `导入失败：${getErrorMessage(error)}`,
+    };
+  }
 }
 
 export async function createStudent(formData: FormData) {
@@ -586,6 +636,25 @@ export async function importTeachers(formData: FormData) {
   baseDataPaths();
 }
 
+export async function importTeachersWithState(
+  _previousState: BaseDataActionState,
+  formData: FormData,
+): Promise<BaseDataActionState> {
+  try {
+    await importTeachers(formData);
+
+    return {
+      ok: true,
+      message: "教师导入完成。若部分记录未出现，请检查邮箱、工号是否重复，组织是否匹配。",
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: `导入失败：${getErrorMessage(error)}`,
+    };
+  }
+}
+
 export async function deleteTeachers(formData: FormData) {
   await requireRole([...ADMIN_ROLES]);
   const rawIds = formData.getAll("ids").map((value) => String(value));
@@ -715,6 +784,25 @@ export async function importTeachingClasses(formData: FormData) {
   }
 
   baseDataPaths();
+}
+
+export async function importTeachingClassesWithState(
+  _previousState: BaseDataActionState,
+  formData: FormData,
+): Promise<BaseDataActionState> {
+  try {
+    await importTeachingClasses(formData);
+
+    return {
+      ok: true,
+      message: "教学班导入完成。若部分记录未出现，请检查课程代码、教师工号、组织是否匹配。",
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: `导入失败：${getErrorMessage(error)}`,
+    };
+  }
 }
 
 export async function deleteTeachingClass(formData: FormData) {
@@ -853,6 +941,25 @@ export async function importEnrollments(formData: FormData) {
   }
 
   baseDataPaths();
+}
+
+export async function importEnrollmentsWithState(
+  _previousState: BaseDataActionState,
+  formData: FormData,
+): Promise<BaseDataActionState> {
+  try {
+    await importEnrollments(formData);
+
+    return {
+      ok: true,
+      message: "选课导入完成。若部分记录未出现，请检查学期、教学班名称和学号是否匹配。",
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: `导入失败：${getErrorMessage(error)}`,
+    };
+  }
 }
 
 export async function deleteEnrollment(formData: FormData) {

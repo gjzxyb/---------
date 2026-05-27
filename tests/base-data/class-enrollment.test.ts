@@ -124,3 +124,36 @@ describe("class import template routes", () => {
     expect(enrollmentRoute).toContain("export async function POST");
   });
 });
+
+describe("class and enrollment import and selection UI", () => {
+  it("exposes readable import errors and batch selection helpers", () => {
+    const actionSource = readFileSync(
+      join(process.cwd(), "app/actions/base-data.ts"),
+      "utf8",
+    );
+    const classTableSource = readFileSync(
+      join(
+        process.cwd(),
+        "app/(admin)/admin/base-data/classes/TeachingClassListTable.tsx",
+      ),
+      "utf8",
+    );
+    const enrollmentTableSource = readFileSync(
+      join(
+        process.cwd(),
+        "app/(admin)/admin/base-data/classes/EnrollmentListTable.tsx",
+      ),
+      "utf8",
+    );
+
+    expect(actionSource).toContain(
+      "export async function importTeachingClassesWithState",
+    );
+    expect(actionSource).toContain("export async function importEnrollmentsWithState");
+    for (const source of [classTableSource, enrollmentTableSource]) {
+      expect(source).toContain("全选");
+      expect(source).toContain("反选");
+      expect(source).toContain("取消选择");
+    }
+  });
+});

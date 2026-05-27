@@ -4,10 +4,10 @@ import { StatCard } from "@/components/stat-card";
 import { StatusBadge } from "@/components/status-badge";
 import {
   createTeacher,
-  deleteTeacher,
-  deleteTeachers,
-  importTeachers,
+  importTeachersWithState,
 } from "@/app/actions/base-data";
+import { BaseDataImportForm } from "@/app/(admin)/admin/base-data/BaseDataImportForm";
+import { TeacherListTable } from "@/app/(admin)/admin/base-data/teachers/TeacherListTable";
 import { requireRole } from "@/lib/auth/guards";
 import { parseTeacherListQuery } from "@/lib/base-data/teacher-import";
 import {
@@ -246,47 +246,13 @@ export default async function TeachersPage({
           </div>
         </form>
 
-        <form
-          action={importTeachers}
-          className="rounded-md border border-slate-200 bg-white p-5 shadow-sm"
-        >
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h2 className="text-base font-semibold text-slate-950">
-                批量导入教师
-              </h2>
-              <p className="mt-1 text-sm text-slate-600">
-                支持 CSV，字段为姓名、邮箱、工号、职称、组织、状态。
-              </p>
-            </div>
-            <Link
-              href="/admin/base-data/teachers/import-template"
-              className="text-sm font-medium text-sky-700"
-            >
-              下载 CSV 模板
-            </Link>
-          </div>
-          <label className="mt-4 grid gap-1 text-sm font-medium text-slate-700">
-            导入文件
-            <input
-              name="file"
-              type="file"
-              accept=".csv,text/csv"
-              required
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
-              disabled={!isDatabaseConfigured}
-            />
-          </label>
-          <p className="mt-3 text-xs leading-5 text-slate-500">
-            组织可填写组织名称或组织 ID；邮箱或工号已存在的记录会自动跳过。
-          </p>
-          <button
-            className="mt-4 rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white disabled:bg-slate-300"
-            disabled={!isDatabaseConfigured}
-          >
-            导入教师
-          </button>
-        </form>
+        <BaseDataImportForm
+          action={importTeachersWithState}
+          disabled={!isDatabaseConfigured}
+          helpText="支持 CSV，字段为姓名、邮箱、工号、职称、组织、状态。组织可填写组织名称或组织 ID；邮箱或工号已存在的记录会自动跳过。"
+          templateHref="/admin/base-data/teachers/import-template"
+          title="批量导入教师"
+        />
       </section>
 
       <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
@@ -371,123 +337,7 @@ export default async function TeachersPage({
           </div>
         </form>
 
-        <form id="delete-teachers-form" action={deleteTeachers} />
-
-        <div className="flex flex-col gap-3 border-t border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-base font-semibold text-slate-950">教师列表</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              勾选无授课班级的教师后可批量删除；已有任课关系的教师会被锁定。
-            </p>
-          </div>
-          <button
-            form="delete-teachers-form"
-            className="rounded-md border border-rose-200 px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50"
-          >
-            批量删除选中
-          </button>
-        </div>
-
-        <div className="overflow-x-auto border-t border-slate-200">
-          <table className="min-w-full divide-y divide-slate-200">
-            <thead className="bg-slate-50">
-              <tr>
-                {[
-                  "选择",
-                  "教师",
-                  "工号",
-                  "职称",
-                  "组织",
-                  "状态",
-                  "授课班级",
-                  "操作",
-                ].map((header) => (
-                  <th
-                    key={header}
-                    className="px-4 py-3 text-left text-xs font-semibold text-slate-500"
-                  >
-                    {header}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 bg-white">
-              {teachers.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={8}
-                    className="px-4 py-8 text-center text-sm text-slate-500"
-                  >
-                    暂无教师数据。
-                  </td>
-                </tr>
-              ) : null}
-              {teachers.map((teacher) => {
-                const canDelete = teacher._count.taughtClasses === 0;
-
-                return (
-                  <tr key={teacher.id}>
-                    <td className="px-4 py-4 text-sm text-slate-700">
-                      <input
-                        form="delete-teachers-form"
-                        type="checkbox"
-                        name="ids"
-                        value={teacher.id}
-                        disabled={!canDelete}
-                        aria-label={`选择删除 ${teacher.name}`}
-                        title={
-                          canDelete
-                            ? "选择批量删除"
-                            : "已有授课班级，不可批量删除"
-                        }
-                        className="h-4 w-4 rounded border-slate-300 text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"
-                      />
-                    </td>
-                    <td className="px-4 py-4 text-sm text-slate-700">
-                      <div className="font-medium text-slate-900">
-                        {teacher.name}
-                      </div>
-                      <div className="mt-1 text-xs text-slate-500">
-                        {teacher.email}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 text-sm text-slate-700">
-                      {teacher.teacherProfile?.teacherNo ?? "未建档"}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-slate-700">
-                      {teacher.teacherProfile?.title ?? "未设置"}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-slate-700">
-                      {teacher.organization.name}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-slate-700">
-                      {teacher.status === "ACTIVE" ? "启用" : "停用"}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-slate-700">
-                      {formatInteger(teacher._count.taughtClasses)}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-slate-700">
-                      <form action={deleteTeacher}>
-                        <input type="hidden" name="id" value={teacher.id} />
-                        <button
-                          disabled={!canDelete}
-                          title={
-                            canDelete
-                              ? "删除教师"
-                              : "已有授课班级，不可删除"
-                          }
-                          className="text-sm font-medium text-rose-700 disabled:text-slate-400"
-                        >
-                          删除
-                        </button>
-                      </form>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <TeacherListTable teachers={teachers} />
 
         <nav className="flex flex-col gap-3 border-t border-slate-200 p-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
           <div>

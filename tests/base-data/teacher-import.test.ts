@@ -84,3 +84,24 @@ describe("teacher import template route", () => {
     expect(routeSource).toContain("export async function POST");
   });
 });
+
+describe("teacher import and selection UI", () => {
+  it("exposes readable import errors and batch selection helpers", () => {
+    const actionSource = readFileSync(
+      join(process.cwd(), "app/actions/base-data.ts"),
+      "utf8",
+    );
+    const tableSource = readFileSync(
+      join(
+        process.cwd(),
+        "app/(admin)/admin/base-data/teachers/TeacherListTable.tsx",
+      ),
+      "utf8",
+    );
+
+    expect(actionSource).toContain("export async function importTeachersWithState");
+    expect(tableSource).toContain("全选");
+    expect(tableSource).toContain("反选");
+    expect(tableSource).toContain("取消选择");
+  });
+});

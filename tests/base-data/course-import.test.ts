@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import {
   COURSE_IMPORT_TEMPLATE_CSV,
@@ -40,5 +42,27 @@ describe("parseCourseImportCsv", () => {
     expect(COURSE_IMPORT_TEMPLATE_CSV.split("\n")[0]).toBe(
       "课程代码,课程名称,组织",
     );
+  });
+});
+
+describe("course import action state", () => {
+  it("exposes readable import errors and batch selection helpers", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/actions/base-data.ts"),
+      "utf8",
+    );
+    const tableSource = readFileSync(
+      join(
+        process.cwd(),
+        "app/(admin)/admin/base-data/courses/CourseListTable.tsx",
+      ),
+      "utf8",
+    );
+
+    expect(source).toContain("export async function importCoursesWithState");
+    expect(source).toContain("export async function deleteCourses");
+    expect(tableSource).toContain("全选");
+    expect(tableSource).toContain("反选");
+    expect(tableSource).toContain("取消选择");
   });
 });

@@ -5,11 +5,12 @@ import { StatusBadge } from "@/components/status-badge";
 import {
   createEnrollment,
   createTeachingClass,
-  deleteEnrollment,
-  deleteTeachingClass,
-  importEnrollments,
-  importTeachingClasses,
+  importEnrollmentsWithState,
+  importTeachingClassesWithState,
 } from "@/app/actions/base-data";
+import { BaseDataImportForm } from "@/app/(admin)/admin/base-data/BaseDataImportForm";
+import { EnrollmentListTable } from "@/app/(admin)/admin/base-data/classes/EnrollmentListTable";
+import { TeachingClassListTable } from "@/app/(admin)/admin/base-data/classes/TeachingClassListTable";
 import { requireRole } from "@/lib/auth/guards";
 import {
   parseClassListQuery,
@@ -390,47 +391,13 @@ export default async function ClassesPage({
           </div>
         </form>
 
-        <form
-          action={importTeachingClasses}
-          className="rounded-md border border-slate-200 bg-white p-5 shadow-sm"
-        >
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h2 className="text-base font-semibold text-slate-950">
-                批量导入教学班
-              </h2>
-              <p className="mt-1 text-sm text-slate-600">
-                支持 CSV，字段为教学班、学期、课程代码、教师工号、组织。
-              </p>
-            </div>
-            <Link
-              href="/admin/base-data/classes/class-import-template"
-              className="text-sm font-medium text-sky-700"
-            >
-              下载 CSV 模板
-            </Link>
-          </div>
-          <label className="mt-4 grid gap-1 text-sm font-medium text-slate-700">
-            导入文件
-            <input
-              name="file"
-              type="file"
-              accept=".csv,text/csv"
-              required
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
-              disabled={!isDatabaseConfigured}
-            />
-          </label>
-          <p className="mt-3 text-xs leading-5 text-slate-500">
-            课程按课程代码匹配，教师按工号匹配，组织可填写组织名称或组织 ID；重复教学班会自动跳过。
-          </p>
-          <button
-            className="mt-4 rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white disabled:bg-slate-300"
-            disabled={!isDatabaseConfigured}
-          >
-            导入教学班
-          </button>
-        </form>
+        <BaseDataImportForm
+          action={importTeachingClassesWithState}
+          disabled={!isDatabaseConfigured}
+          helpText="支持 CSV，字段为教学班、学期、课程代码、教师工号、组织。课程按课程代码匹配，教师按工号匹配，组织可填写组织名称或组织 ID。"
+          templateHref="/admin/base-data/classes/class-import-template"
+          title="批量导入教学班"
+        />
       </section>
 
       <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
@@ -523,81 +490,7 @@ export default async function ClassesPage({
           </div>
         </form>
 
-        <div className="overflow-x-auto border-t border-slate-200">
-          <table className="min-w-full divide-y divide-slate-200">
-            <thead className="bg-slate-50">
-              <tr>
-                {["教学班", "课程", "教师", "组织", "选课/派发", "操作"].map(
-                  (header) => (
-                    <th
-                      key={header}
-                      className="px-4 py-3 text-left text-xs font-semibold text-slate-500"
-                    >
-                      {header}
-                    </th>
-                  ),
-                )}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 bg-white">
-              {teachingClasses.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-4 py-8 text-center text-sm text-slate-500"
-                  >
-                    暂无教学班。
-                  </td>
-                </tr>
-              ) : null}
-              {teachingClasses.map((teachingClass) => {
-                const canDelete = teachingClass._count.assignments === 0;
-
-                return (
-                  <tr key={teachingClass.id}>
-                    <td className="px-4 py-4 text-sm text-slate-700">
-                      <div className="font-medium text-slate-900">
-                        {teachingClass.name}
-                      </div>
-                      <div className="mt-1 text-xs text-slate-500">
-                        {teachingClass.term}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 text-sm text-slate-700">
-                      {teachingClass.course.name} ({teachingClass.course.code})
-                    </td>
-                    <td className="px-4 py-4 text-sm text-slate-700">
-                      {teachingClass.teacher.name}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-slate-700">
-                      {teachingClass.organization?.name ?? "未归属"}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-slate-700">
-                      {teachingClass._count.enrollments} /{" "}
-                      {teachingClass._count.assignments}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-slate-700">
-                      <form action={deleteTeachingClass}>
-                        <input type="hidden" name="id" value={teachingClass.id} />
-                        <button
-                          disabled={!canDelete}
-                          title={
-                            canDelete
-                              ? "删除教学班"
-                              : "已有评教派发，不可删除"
-                          }
-                          className="text-sm font-medium text-rose-700 disabled:text-slate-400"
-                        >
-                          删除
-                        </button>
-                      </form>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <TeachingClassListTable teachingClasses={teachingClasses} />
 
         <nav className="flex flex-col gap-3 border-t border-slate-200 p-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -687,47 +580,13 @@ export default async function ClassesPage({
           </div>
         </form>
 
-        <form
-          action={importEnrollments}
-          className="rounded-md border border-slate-200 bg-white p-5 shadow-sm"
-        >
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h2 className="text-base font-semibold text-slate-950">
-                批量导入选课
-              </h2>
-              <p className="mt-1 text-sm text-slate-600">
-                支持 CSV，字段为学期、教学班、学号。
-              </p>
-            </div>
-            <Link
-              href="/admin/base-data/classes/import-template"
-              className="text-sm font-medium text-sky-700"
-            >
-              下载 CSV 模板
-            </Link>
-          </div>
-          <label className="mt-4 grid gap-1 text-sm font-medium text-slate-700">
-            导入文件
-            <input
-              name="file"
-              type="file"
-              accept=".csv,text/csv"
-              required
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
-              disabled={!isDatabaseConfigured}
-            />
-          </label>
-          <p className="mt-3 text-xs leading-5 text-slate-500">
-            系统会按“学期 + 教学班名称”匹配教学班，按学号匹配学生；重复选课会自动跳过。
-          </p>
-          <button
-            className="mt-4 rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white disabled:bg-slate-300"
-            disabled={!isDatabaseConfigured}
-          >
-            导入选课
-          </button>
-        </form>
+        <BaseDataImportForm
+          action={importEnrollmentsWithState}
+          disabled={!isDatabaseConfigured}
+          helpText="支持 CSV，字段为学期、教学班、学号。系统会按“学期 + 教学班名称”匹配教学班，按学号匹配学生。"
+          templateHref="/admin/base-data/classes/import-template"
+          title="批量导入选课"
+        />
       </section>
 
       <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
@@ -803,84 +662,7 @@ export default async function ClassesPage({
           </div>
         </form>
 
-        <div className="overflow-x-auto border-t border-slate-200">
-          <table className="min-w-full divide-y divide-slate-200">
-            <thead className="bg-slate-50">
-              <tr>
-                {["教学班", "学生", "学号", "评教派发", "操作"].map((header) => (
-                  <th
-                    key={header}
-                    className="px-4 py-3 text-left text-xs font-semibold text-slate-500"
-                  >
-                    {header}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 bg-white">
-              {enrollments.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="px-4 py-8 text-center text-sm text-slate-500"
-                  >
-                    暂无选课记录。
-                  </td>
-                </tr>
-              ) : null}
-              {enrollments.map((enrollment) => {
-                const hasAssignment =
-                  enrollment.teachingClass.assignments.some(
-                    (assignment) =>
-                      assignment.evaluatorId === enrollment.studentId,
-                  );
-
-                return (
-                  <tr key={enrollment.id}>
-                    <td className="px-4 py-4 text-sm text-slate-700">
-                      <div className="font-medium text-slate-900">
-                        {enrollment.teachingClass.name}
-                      </div>
-                      <div className="mt-1 text-xs text-slate-500">
-                        {enrollment.teachingClass.term}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 text-sm text-slate-700">
-                      <div className="font-medium text-slate-900">
-                        {enrollment.student.name}
-                      </div>
-                      <div className="mt-1 text-xs text-slate-500">
-                        {enrollment.student.email}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 text-sm text-slate-700">
-                      {enrollment.student.studentProfile?.studentNo ?? "未建档"}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-slate-700">
-                      {hasAssignment ? "已派发" : "未派发"}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-slate-700">
-                      <form action={deleteEnrollment}>
-                        <input type="hidden" name="id" value={enrollment.id} />
-                        <button
-                          disabled={hasAssignment}
-                          title={
-                            hasAssignment
-                              ? "已有评教派发，不可移除"
-                              : "移除选课"
-                          }
-                          className="text-sm font-medium text-rose-700 disabled:text-slate-400"
-                        >
-                          移除
-                        </button>
-                      </form>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <EnrollmentListTable enrollments={enrollments} />
 
         <nav className="flex flex-col gap-3 border-t border-slate-200 p-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
           <div>

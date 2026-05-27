@@ -1,7 +1,11 @@
 import Link from "next/link";
 
-import { createCourse, deleteCourse, importCourses } from "@/app/actions/base-data";
-import { DataTable } from "@/components/data-table";
+import {
+  createCourse,
+  importCoursesWithState,
+} from "@/app/actions/base-data";
+import { BaseDataImportForm } from "@/app/(admin)/admin/base-data/BaseDataImportForm";
+import { CourseListTable } from "@/app/(admin)/admin/base-data/courses/CourseListTable";
 import { StatCard } from "@/components/stat-card";
 import { StatusBadge } from "@/components/status-badge";
 import { requireRole } from "@/lib/auth/guards";
@@ -161,29 +165,13 @@ export default async function CoursesPage({
           </div>
         </form>
 
-        <form action={importCourses} className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h2 className="text-base font-semibold text-slate-950">批量导入课程</h2>
-              <p className="mt-1 text-sm text-slate-600">
-                支持 CSV，字段为课程代码、课程名称、组织。
-              </p>
-            </div>
-            <Link href="/admin/base-data/courses/import-template" className="text-sm font-medium text-sky-700">
-              下载 CSV 模板
-            </Link>
-          </div>
-          <label className="mt-4 grid gap-1 text-sm font-medium text-slate-700">
-            导入文件
-            <input name="file" type="file" accept=".csv,text/csv" required className="rounded-md border border-slate-300 px-3 py-2 text-sm" disabled={!isDatabaseConfigured} />
-          </label>
-          <p className="mt-3 text-xs leading-5 text-slate-500">
-            组织可填写组织名称或组织 ID；课程代码重复、组织无法匹配的行会自动跳过。
-          </p>
-          <button className="mt-4 rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white disabled:bg-slate-300" disabled={!isDatabaseConfigured}>
-            导入课程
-          </button>
-        </form>
+        <BaseDataImportForm
+          action={importCoursesWithState}
+          disabled={!isDatabaseConfigured}
+          helpText="支持 CSV，字段为课程代码、课程名称、组织。组织可填写组织名称或组织 ID；课程代码重复、组织无法匹配的行会自动跳过。"
+          templateHref="/admin/base-data/courses/import-template"
+          title="批量导入课程"
+        />
       </section>
 
       <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
@@ -233,33 +221,7 @@ export default async function CoursesPage({
           </div>
         </form>
 
-        <div className="border-t border-slate-200">
-          <DataTable
-            headers={["课程", "归属组织", "教学班数", "状态", "操作"]}
-            emptyText="暂无课程数据。"
-            rows={courses.map((course) => {
-              const canDelete = course._count.teachingClasses === 0;
-
-              return [
-                <div key="course">
-                  <div className="font-medium text-slate-900">{course.name}</div>
-                  <div className="mt-1 text-xs text-slate-500">{course.code}</div>
-                </div>,
-                course.organization?.name ?? "未归属",
-                formatInteger(course._count.teachingClasses),
-                <StatusBadge key="status" tone={canDelete ? "neutral" : "success"}>
-                  {canDelete ? "未关联" : "已关联"}
-                </StatusBadge>,
-                <form key="delete" action={deleteCourse}>
-                  <input type="hidden" name="id" value={course.id} />
-                  <button disabled={!canDelete} title={canDelete ? "删除课程" : "已有教学班，不可删除"} className="text-sm font-medium text-rose-700 disabled:text-slate-400">
-                    删除
-                  </button>
-                </form>,
-              ];
-            })}
-          />
-        </div>
+        <CourseListTable courses={courses} />
 
         <nav className="flex flex-col gap-3 border-t border-slate-200 p-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
           <div>
