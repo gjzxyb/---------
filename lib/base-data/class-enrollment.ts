@@ -36,6 +36,19 @@ export type EnrollmentListQuery = {
   enrollmentTeachingClassId?: string;
 };
 
+export type GradePrefixEnrollmentPlanInput = {
+  existingEnrollments: { studentId: string; teachingClassId: string }[];
+  students: { id: string; grade?: string | null }[];
+  teachingClasses: { id: string; name: string }[];
+};
+
+export type PlannedEnrollment = {
+  studentId: string;
+  teachingClassId: string;
+};
+
+const teachingClassGradePrefixLength = 7;
+
 function parseCsvLine(line: string) {
   const cells: string[] = [];
   let currentCell = "";
@@ -212,4 +225,52 @@ export function parseEnrollmentListQuery(
     ),
     enrollmentTerm: optionalQueryText(searchParams.enrollmentTerm),
   };
+}
+
+export function planGradePrefixEnrollments({
+  existingEnrollments,
+  students,
+  teachingClasses,
+}: GradePrefixEnrollmentPlanInput): PlannedEnrollment[] {
+  const existingKeys = new Set(
+    existingEnrollments.map(
+      (enrollment) =>
+        `${enrollment.studentId}::${enrollment.teachingClassId}`,
+    ),
+  );
+  const classesByPrefix = new Map<string, { id: string; name: string }[]>();
+
+  for (const teachingClass of teachingClasses) {
+    const prefix = teachingClass.name
+      .slice(0, teachingClassGradePrefixLength)
+      .trim();
+
+    if (!prefix) {
+      continue;
+    }
+
+    classesByPrefix.set(prefix, [
+      ...(classesByPrefix.get(prefix) ?? []),
+      teachingClass,
+    ]);
+  }
+
+  return students.flatMap((student) => {
+    const grade = student.grade?.trim();
+
+    if (!grade) {
+      return [];
+    }
+
+    return (classesByPrefix.get(grade) ?? [])
+      .map((teachingClass) => ({
+        studentId: student.id,
+        teachingClassId: teachingClass.id,
+      }))
+      .filter((enrollment) => {
+        const key = `${enrollment.studentId}::${enrollment.teachingClassId}`;
+
+        return !existingKeys.has(key);
+      });
+  });
 }

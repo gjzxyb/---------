@@ -10,6 +10,7 @@ import {
 } from "@/app/actions/base-data";
 import { BaseDataImportForm } from "@/app/(admin)/admin/base-data/BaseDataImportForm";
 import { EnrollmentListTable } from "@/app/(admin)/admin/base-data/classes/EnrollmentListTable";
+import { GenerateEnrollmentsForm } from "@/app/(admin)/admin/base-data/classes/GenerateEnrollmentsForm";
 import { TeachingClassListTable } from "@/app/(admin)/admin/base-data/classes/TeachingClassListTable";
 import { requireRole } from "@/lib/auth/guards";
 import {
@@ -588,6 +589,14 @@ export default async function ClassesPage({
           title="批量导入选课"
         />
       </section>
+
+      <GenerateEnrollmentsForm
+        disabled={
+          !isDatabaseConfigured ||
+          teachingClasses.length === 0 ||
+          students.length === 0
+        }
+      />
 
       <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
         <form className="p-5">

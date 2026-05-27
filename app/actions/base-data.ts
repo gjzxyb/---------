@@ -7,6 +7,7 @@ import { requireRole } from "@/lib/auth/guards";
 import { hashPassword } from "@/lib/auth/password";
 import {
   parseEnrollmentImportCsv,
+  planGradePrefixEnrollments,
   parseTeachingClassImportCsv,
 } from "@/lib/base-data/class-enrollment";
 import { parseCourseImportCsv } from "@/lib/base-data/course-import";
@@ -958,6 +959,65 @@ export async function importEnrollmentsWithState(
     return {
       ok: false,
       message: `导入失败：${getErrorMessage(error)}`,
+    };
+  }
+}
+
+export async function generateEnrollmentsByGradePrefixWithState(
+  _previousState: BaseDataActionState,
+  _formData: FormData,
+): Promise<BaseDataActionState> {
+  void _previousState;
+  void _formData;
+
+  try {
+    await requireRole([...ADMIN_ROLES]);
+    const { prisma } = await import("@/lib/db");
+    const [students, teachingClasses, existingEnrollments] = await Promise.all([
+      prisma.user.findMany({
+        select: {
+          id: true,
+          studentProfile: { select: { grade: true } },
+        },
+        where: {
+          role: "STUDENT",
+          status: { not: "GRADUATED" },
+        },
+      }),
+      prisma.teachingClass.findMany({
+        select: { id: true, name: true },
+        orderBy: [{ term: "desc" }, { name: "asc" }],
+      }),
+      prisma.enrollment.findMany({
+        select: { studentId: true, teachingClassId: true },
+      }),
+    ]);
+    const plannedEnrollments = planGradePrefixEnrollments({
+      existingEnrollments,
+      students: students.map((student) => ({
+        id: student.id,
+        grade: student.studentProfile?.grade,
+      })),
+      teachingClasses,
+    });
+
+    if (plannedEnrollments.length > 0) {
+      await prisma.enrollment.createMany({
+        data: plannedEnrollments,
+        skipDuplicates: true,
+      });
+    }
+
+    baseDataPaths();
+
+    return {
+      ok: true,
+      message: `生成完成：新增 ${plannedEnrollments.length} 条选课记录。规则为学生年级匹配教学班名称前 7 位。`,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: `生成失败：${getErrorMessage(error)}`,
     };
   }
 }

@@ -8,6 +8,7 @@ import {
   parseClassListQuery,
   parseEnrollmentImportCsv,
   parseEnrollmentListQuery,
+  planGradePrefixEnrollments,
   parseTeachingClassImportCsv,
 } from "../../lib/base-data/class-enrollment";
 
@@ -100,6 +101,31 @@ describe("class and enrollment list queries", () => {
       enrollmentPageSize: 30,
       enrollmentQ: "张三",
     });
+  });
+});
+
+describe("planGradePrefixEnrollments", () => {
+  it("matches student grade with the first seven characters of teaching class names", () => {
+    expect(
+      planGradePrefixEnrollments({
+        existingEnrollments: [{ studentId: "student-1", teachingClassId: "class-1" }],
+        students: [
+          { id: "student-1", grade: "G202801" },
+          { id: "student-2", grade: "G202801" },
+          { id: "student-3", grade: "G202901" },
+        ],
+        teachingClasses: [
+          { id: "class-1", name: "G202801语文教学班" },
+          { id: "class-2", name: "G202801数学教学班" },
+          { id: "class-3", name: "G202901英语教学班" },
+        ],
+      }),
+    ).toEqual([
+      { studentId: "student-1", teachingClassId: "class-2" },
+      { studentId: "student-2", teachingClassId: "class-1" },
+      { studentId: "student-2", teachingClassId: "class-2" },
+      { studentId: "student-3", teachingClassId: "class-3" },
+    ]);
   });
 });
 
