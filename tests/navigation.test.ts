@@ -76,3 +76,17 @@ describe("role dashboard entry policy", () => {
     expect(source).toContain('primaryHref: "/profile"');
   });
 });
+
+describe("extension routes", () => {
+  it("provides a shared page for configured extension module links", async () => {
+    const source = await import("node:fs/promises").then((fs) =>
+      fs.readFile("app/(portal)/extensions/[module]/page.tsx", "utf8"),
+    );
+
+    expect(source).toContain("supervision");
+    expect(source).toContain("peer-review");
+    expect(source).toContain("teacher-self-evaluation");
+    expect(source).toContain("parent-feedback");
+    expect(source).toContain("classroom-observation");
+  });
+});
