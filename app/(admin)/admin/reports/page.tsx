@@ -293,7 +293,7 @@ function teacherBucketRows(
       </Link>,
       `${formatInteger(aggregate.submitted)} / ${formatInteger(aggregate.assigned)}`,
       formatPercent(aggregate.responseRate),
-      sampleHidden ? "小样本隐藏" : aggregate.average,
+      sampleHidden ? "小样本隐藏" : formatInteger(aggregate.scoreTotal),
       <StatusBadge
         key="status"
         tone={
@@ -465,7 +465,7 @@ function buildTextComments(responses: ReportResponse[]) {
 }
 
 function buildWarnings(aggregates: ReturnType<typeof buildAggregates>) {
-  return [...aggregates.classes, ...aggregates.teachers, ...aggregates.courses]
+  return [...aggregates.classes, ...aggregates.courses]
     .flatMap((aggregate) => {
       const warnings = [];
 
@@ -831,7 +831,7 @@ export default async function AdminReportsPage({
       <section className="grid gap-6 xl:grid-cols-2">
         <div className="space-y-3">
           <h2 className="text-base font-semibold text-slate-950">教师报表</h2>
-          <DataTable headers={["教师", "提交/派发", "回收率", "平均分", "状态"]} emptyText="暂无教师汇总。" rows={teacherBucketRows(aggregates.teachers, query)} />
+          <DataTable headers={["教师", "提交/派发", "回收率", "得分（总分）", "状态"]} emptyText="暂无教师汇总。" rows={teacherBucketRows(aggregates.teachers, query)} />
         </div>
         <div className="space-y-3">
           <h2 className="text-base font-semibold text-slate-950">课程报表</h2>

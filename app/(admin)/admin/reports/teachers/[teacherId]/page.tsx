@@ -20,11 +20,9 @@ import {
   formatInteger,
   formatPercent,
   isDatabaseConfigured,
-  roundMetric,
 } from "@/lib/demo-data";
 
 const LOW_RESPONSE_RATE = 60;
-const LOW_AVERAGE_SCORE = 3.5;
 const CHART_CONFIG = {
   height: 260,
   maxScore: 5,
@@ -66,7 +64,6 @@ type TeacherReportDetail = {
 
 type TeacherEvaluationPoint = {
   assigned: number;
-  average: number | null;
   course: string;
   key: string;
   label: string;
@@ -118,7 +115,6 @@ function buildEvaluationPoints(assignments: TeacherReportAssignment[]) {
       buckets.get(key) ??
       ({
         assigned: 0,
-        average: null,
         course: `${teachingClass.course.name} (${teachingClass.course.code})`,
         key,
         label: `${assignment.task.term} · ${assignment.task.name} · ${teachingClass.name}`,
@@ -147,15 +143,7 @@ function buildEvaluationPoints(assignments: TeacherReportAssignment[]) {
     buckets.set(key, bucket);
   });
 
-  return Array.from(buckets.values())
-    .map((bucket) => ({
-      ...bucket,
-      average:
-        bucket.scoreCount === 0
-          ? null
-          : roundMetric(bucket.scoreTotal / bucket.scoreCount),
-    }))
-    .sort((first, second) => {
+  return Array.from(buckets.values()).sort((first, second) => {
       const termOrder = first.term.localeCompare(second.term, "zh-CN");
 
       if (termOrder !== 0) {
@@ -220,18 +208,30 @@ async function loadTeacherReport(
   return { assignments, teacher };
 }
 
+function buildScoreAxis(maxScore: number) {
+  const step = Math.max(Math.ceil(maxScore / 5), 1);
+  const axisMax = Math.max(step * 5, 5);
+
+  return {
+    labels: Array.from({ length: 6 }, (_, index) => axisMax - step * index),
+    maxScore: axisMax,
+  };
+}
+
 function TrendChart({ points }: { points: TeacherEvaluationPoint[] }) {
   const visiblePoints = points.filter(
-    (point) => point.submitted >= SMALL_SAMPLE_THRESHOLD && point.average !== null,
+    (point) => point.submitted >= SMALL_SAMPLE_THRESHOLD && point.scoreCount > 0,
   );
-  const scores = visiblePoints.map((point) => point.average ?? 0);
-  const coordinates = buildScoreTrendCoordinates(scores, CHART_CONFIG);
-  const path = buildScoreTrendPath(scores, CHART_CONFIG);
+  const scores = visiblePoints.map((point) => point.scoreTotal);
+  const axis = buildScoreAxis(Math.max(...scores, 0));
+  const chartConfig = { ...CHART_CONFIG, maxScore: axis.maxScore };
+  const coordinates = buildScoreTrendCoordinates(scores, chartConfig);
+  const path = buildScoreTrendPath(scores, chartConfig);
 
   if (visiblePoints.length === 0) {
     return (
       <section className="rounded-md border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-base font-semibold text-slate-950">评教分数趋势</h2>
+        <h2 className="text-base font-semibold text-slate-950">评教得分趋势</h2>
         <p className="mt-4 text-sm text-slate-500">
           当前筛选范围内暂无满足小样本阈值的评教记录，暂不绘制趋势图。
         </p>
@@ -243,9 +243,9 @@ function TrendChart({ points }: { points: TeacherEvaluationPoint[] }) {
     <section className="rounded-md border border-slate-200 bg-white p-6 shadow-sm">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-base font-semibold text-slate-950">评教分数趋势</h2>
+          <h2 className="text-base font-semibold text-slate-950">评教得分趋势</h2>
           <p className="mt-1 text-sm text-slate-500">
-            仅绘制提交数不少于 {SMALL_SAMPLE_THRESHOLD} 的记录，满分按 5 分制展示。
+            仅绘制提交数不少于 {SMALL_SAMPLE_THRESHOLD} 的记录，按每次评教所有计分题直接累加展示。
           </p>
         </div>
         <div className="text-sm font-medium text-slate-600">
@@ -260,19 +260,19 @@ function TrendChart({ points }: { points: TeacherEvaluationPoint[] }) {
           role="img"
           viewBox={`0 0 ${CHART_CONFIG.width} ${CHART_CONFIG.height}`}
         >
-          {[5, 4, 3, 2, 1].map((score) => {
+          {axis.labels.map((score) => {
             const y =
-              CHART_CONFIG.padding +
-              ((CHART_CONFIG.maxScore - score) / CHART_CONFIG.maxScore) *
-                (CHART_CONFIG.height - CHART_CONFIG.padding * 2);
+              chartConfig.padding +
+              ((chartConfig.maxScore - score) / chartConfig.maxScore) *
+                (chartConfig.height - chartConfig.padding * 2);
 
             return (
               <g key={score}>
                 <line
                   stroke="#e2e8f0"
                   strokeWidth="1"
-                  x1={CHART_CONFIG.padding}
-                  x2={CHART_CONFIG.width - CHART_CONFIG.padding}
+                  x1={chartConfig.padding}
+                  x2={chartConfig.width - chartConfig.padding}
                   y1={y}
                   y2={y}
                 />
@@ -288,7 +288,7 @@ function TrendChart({ points }: { points: TeacherEvaluationPoint[] }) {
               <circle
                 cx={coordinate.x}
                 cy={coordinate.y}
-                fill={coordinate.score < LOW_AVERAGE_SCORE ? "#dc2626" : "#0284c7"}
+                fill="#0284c7"
                 r="5"
               />
               <text
@@ -308,7 +308,9 @@ function TrendChart({ points }: { points: TeacherEvaluationPoint[] }) {
       <div className="mt-4 grid gap-2 text-xs text-slate-500 md:grid-cols-2 xl:grid-cols-3">
         {visiblePoints.slice(-6).map((point) => (
           <div key={point.key} className="truncate">
-            <span className="font-medium text-slate-700">{point.average}</span>
+            <span className="font-medium text-slate-700">
+              {formatInteger(point.scoreTotal)}
+            </span>
             {" · "}
             {point.label}
           </div>
@@ -354,24 +356,15 @@ export default async function TeacherReportDetailPage({
       answer.score === null ? [] : [answer.score],
     ) ?? [],
   );
-  const visibleAverages = points.flatMap((point) =>
-    point.submitted >= SMALL_SAMPLE_THRESHOLD && point.average !== null
-      ? [point.average]
+  const visibleTotals = points.flatMap((point) =>
+    point.submitted >= SMALL_SAMPLE_THRESHOLD && point.scoreCount > 0
+      ? [point.scoreTotal]
       : [],
   );
-  const overallAverage =
-    visibleAverages.length === 0
+  const totalScore =
+    visibleTotals.length === 0
       ? "小样本隐藏"
-      : roundMetric(
-          visibleAverages.reduce((total, score) => total + score, 0) /
-            visibleAverages.length,
-        );
-  const lowScoreCount = points.filter(
-    (point) =>
-      point.submitted >= SMALL_SAMPLE_THRESHOLD &&
-      point.average !== null &&
-      point.average < LOW_AVERAGE_SCORE,
-  ).length;
+      : formatInteger(visibleTotals.reduce((total, score) => total + score, 0));
   const returnParams = buildReportSearchParams(query);
   const returnHref = returnParams.toString()
     ? `/admin/reports?${returnParams.toString()}`
@@ -400,8 +393,8 @@ export default async function TeacherReportDetailPage({
         <StatCard label="评教记录" value={formatInteger(points.length)} hint="按任务和教学班聚合" />
         <StatCard label="派发总数" value={formatInteger(data.assignments.length)} hint="当前筛选范围" />
         <StatCard label="整体回收率" value={formatPercent(assignmentResponseRate(data.assignments))} hint={`${formatInteger(submittedAssignments)} / ${formatInteger(data.assignments.length)} 已提交`} />
-        <StatCard label="趋势均分" value={overallAverage} hint="按可分析评教次数均值" />
-        <StatCard label="低分预警" value={formatInteger(lowScoreCount)} hint={`低于 ${LOW_AVERAGE_SCORE} 分`} />
+        <StatCard label="累计得分" value={totalScore} hint="可分析评教的计分题总和" />
+        <StatCard label="计分答案" value={formatInteger(scoredAnswers.length)} hint="剔除文本题与空分值" />
       </section>
 
       <TrendChart points={points} />
@@ -409,7 +402,7 @@ export default async function TeacherReportDetailPage({
       <section className="space-y-3">
         <h2 className="text-base font-semibold text-slate-950">每次评教明细</h2>
         <DataTable
-          headers={["学期", "评价任务", "课程", "教学班", "提交/派发", "回收率", "平均分", "状态"]}
+          headers={["学期", "评价任务", "课程", "教学班", "提交/派发", "回收率", "得分（总分）", "状态"]}
           emptyText="暂无教师评教记录。"
           rows={points.map((point) => {
             const sampleHidden = point.submitted < SMALL_SAMPLE_THRESHOLD;
@@ -418,11 +411,6 @@ export default async function TeacherReportDetailPage({
                 status: index < point.submitted ? "SUBMITTED" : "PENDING",
               })),
             );
-            const lowScore =
-              !sampleHidden &&
-              point.average !== null &&
-              point.average < LOW_AVERAGE_SCORE;
-
             return [
               point.term,
               point.task,
@@ -430,30 +418,28 @@ export default async function TeacherReportDetailPage({
               point.teachingClass,
               `${formatInteger(point.submitted)} / ${formatInteger(point.assigned)}`,
               formatPercent(responseRate),
-              sampleHidden || point.average === null ? "小样本隐藏" : point.average,
+              sampleHidden || point.scoreCount === 0
+                ? "小样本隐藏"
+                : formatInteger(point.scoreTotal),
               <StatusBadge
                 key="status"
                 tone={
                   sampleHidden || responseRate < LOW_RESPONSE_RATE
                     ? "warning"
-                    : lowScore
-                      ? "danger"
-                      : "success"
+                    : "success"
                 }
               >
                 {sampleHidden
                   ? "样本不足"
                   : responseRate < LOW_RESPONSE_RATE
                     ? "低回收"
-                    : lowScore
-                      ? "低分"
-                      : "可分析"}
+                    : "可分析"}
               </StatusBadge>,
             ];
           })}
         />
         <p className="text-xs text-slate-500">
-          计分答案数：{formatInteger(scoredAnswers.length)}。小样本记录不参与趋势图和趋势均分。
+          计分答案数：{formatInteger(scoredAnswers.length)}。教师个人得分按每项计分题原始分值累加，小样本记录不参与趋势图和累计得分。
         </p>
       </section>
     </div>
