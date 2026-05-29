@@ -100,7 +100,7 @@ export default async function ProfilePage() {
           账号与安全
         </h1>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          查看当前账号、组织和身份资料；修改姓名与登录密码。角色、邮箱、组织和学籍/工号信息由管理员维护。
+          查看当前账号、组织和身份资料；修改用户名/显示名称与登录密码。角色、邮箱、组织和学籍/工号信息由管理员维护。
         </p>
       </div>
 
@@ -144,7 +144,7 @@ export default async function ProfilePage() {
         <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-base font-semibold text-slate-950">修改资料</h2>
           <p className="mt-1 text-sm text-slate-600">
-            姓名会用于页面展示、报表和操作审计。
+            用户名/显示名称会用于页面展示、报表和操作审计。
           </p>
           <div className="mt-5">
             <ProfileUpdateForm name={user.name} />

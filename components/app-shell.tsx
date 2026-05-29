@@ -1,6 +1,7 @@
 "use client";
 
 import type { Session } from "next-auth";
+import Link from "next/link";
 import { signOut } from "next-auth/react";
 
 import { Nav } from "@/components/nav";
@@ -44,14 +45,17 @@ export function AppShell({ children, navigation, session }: AppShellProps) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="app-header flex min-h-20 flex-col gap-3 border-b border-slate-200 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
-          <div className="min-w-0 self-stretch sm:self-auto">
+          <Link
+            href="/profile"
+            className="min-w-0 self-stretch rounded-md outline-none transition hover:opacity-85 focus:ring-2 focus:ring-sky-500 sm:self-auto"
+          >
             <p className="truncate text-sm font-medium text-slate-500">
               {user.email}
             </p>
             <h2 className="truncate text-base font-semibold text-slate-950">
               {user.name ?? "未命名用户"}
             </h2>
-          </div>
+          </Link>
           <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto sm:gap-3">
             <ThemeToggle compact />
             <StatusBadge tone="info">{roleLabels[user.role]}</StatusBadge>

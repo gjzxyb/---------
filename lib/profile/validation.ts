@@ -33,8 +33,8 @@ export const profileUpdateSchema = z.object({
   name: z
     .string()
     .trim()
-    .min(2, "姓名至少需要 2 个字符")
-    .max(50, "姓名不能超过 50 个字符"),
+    .min(2, "用户名/显示名称至少需要 2 个字符")
+    .max(50, "用户名/显示名称不能超过 50 个字符"),
 });
 
 export const studentClassUpdateSchema = z.object({

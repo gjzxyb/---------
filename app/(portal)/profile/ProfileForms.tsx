@@ -53,7 +53,7 @@ export function ProfileUpdateForm({ name }: { name: string }) {
       <ActionMessage state={state} />
       <div>
         <label htmlFor="profile-name" className="text-sm font-medium text-slate-700">
-          姓名
+          用户名/显示名称
         </label>
         <input
           id="profile-name"
