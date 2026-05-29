@@ -14,7 +14,7 @@ export function DataTable({
   const columnCount = Math.max(headers.length, 1);
 
   return (
-    <div className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
+    <div className="theme-card overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
       <table className="min-w-full divide-y divide-slate-200">
         {headers.length ? (
           <thead className="bg-slate-50">

@@ -6,6 +6,7 @@ import { signOut } from "next-auth/react";
 import { Nav } from "@/components/nav";
 import { PageContextBar } from "@/components/page-context-bar";
 import { StatusBadge } from "@/components/status-badge";
+import { ThemeToggle } from "@/components/theme-toggle";
 import type { NavigationGroup } from "@/lib/navigation";
 import type { Role } from "@/lib/generated/prisma/enums";
 
@@ -28,8 +29,8 @@ export function AppShell({ children, navigation, session }: AppShellProps) {
   const user = session.user;
 
   return (
-    <div className="flex min-h-screen bg-slate-100 text-slate-950">
-      <aside className="hidden w-72 flex-col bg-slate-950 px-4 py-5 text-slate-100 lg:flex">
+    <div className="app-shell flex min-h-screen bg-slate-100 text-slate-950">
+      <aside className="app-sidebar hidden w-72 flex-col bg-slate-950 px-4 py-5 text-slate-100 lg:flex">
         <div className="px-3">
           <p className="text-xs font-medium text-sky-300">智慧评教</p>
           <h1 className="mt-2 text-lg font-semibold tracking-normal text-white">
@@ -42,7 +43,7 @@ export function AppShell({ children, navigation, session }: AppShellProps) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex min-h-16 items-center justify-between border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
+        <header className="app-header flex min-h-16 items-center justify-between border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-slate-500">
               {user.email}
@@ -52,6 +53,7 @@ export function AppShell({ children, navigation, session }: AppShellProps) {
             </h2>
           </div>
           <div className="flex shrink-0 items-center gap-3">
+            <ThemeToggle compact />
             <StatusBadge tone="info">{roleLabels[user.role]}</StatusBadge>
             <button
               type="button"
@@ -63,7 +65,7 @@ export function AppShell({ children, navigation, session }: AppShellProps) {
           </div>
         </header>
 
-        <div className="border-b border-slate-200 bg-slate-950 px-4 py-3 lg:hidden">
+        <div className="app-mobile-nav border-b border-slate-200 bg-slate-950 px-4 py-3 lg:hidden">
           <Nav groups={navigation} />
         </div>
 

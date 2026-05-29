@@ -19,7 +19,7 @@ export function PageContextBar({ navigation }: PageContextBarProps) {
   }
 
   return (
-    <div className="mb-5 border-b border-slate-200 pb-4">
+    <div className="theme-context-bar mb-5 border-b border-slate-200 pb-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <nav aria-label="当前位置" className="min-w-0">
           <ol className="flex flex-wrap items-center gap-2 text-sm">

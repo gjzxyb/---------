@@ -1,15 +1,20 @@
 import LoginForm from "./LoginForm";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function LoginPage() {
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#07111f] text-white">
+    <main className="login-page relative min-h-screen overflow-hidden bg-[#07111f] text-white">
       <div className="absolute inset-0 bg-[linear-gradient(rgba(125,211,252,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(125,211,252,0.08)_1px,transparent_1px)] bg-[size:44px_44px]" />
       <div className="absolute -left-28 top-16 h-72 w-72 rounded-full bg-sky-500/20 blur-3xl" />
       <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-cyan-300/10 blur-3xl" />
       <div className="absolute left-[18%] top-[20%] h-px w-48 rotate-12 bg-gradient-to-r from-transparent via-sky-300/60 to-transparent" />
       <div className="absolute bottom-[24%] right-[18%] h-px w-64 -rotate-12 bg-gradient-to-r from-transparent via-cyan-200/50 to-transparent" />
 
-      <section className="relative z-10 mx-auto grid min-h-screen w-full max-w-6xl items-center gap-10 px-6 py-12 lg:grid-cols-[1fr_420px]">
+      <div className="absolute right-6 top-6 z-20">
+        <ThemeToggle />
+      </div>
+
+      <section className="relative z-10 mx-auto grid min-h-screen w-full max-w-6xl items-center gap-10 px-6 py-20 lg:grid-cols-[1fr_420px]">
         <div className="max-w-2xl">
           <p className="inline-flex rounded-full border border-sky-300/30 bg-sky-300/10 px-3 py-1 text-sm font-medium text-sky-100">
             教学评价与改进平台
