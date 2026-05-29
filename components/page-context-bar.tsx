@@ -13,6 +13,7 @@ type PageContextBarProps = {
 export function PageContextBar({ navigation }: PageContextBarProps) {
   const pathname = usePathname();
   const context = buildPageContext(pathname, navigation);
+  const showHomeAction = pathname !== "/dashboard";
 
   if (context.breadcrumbs.length === 0) {
     return null;
@@ -54,15 +55,26 @@ export function PageContextBar({ navigation }: PageContextBarProps) {
           </ol>
         </nav>
 
-        {context.parentHref ? (
-          <Link
-            href={context.parentHref}
-            className="inline-flex w-fit items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-sky-300 hover:text-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500"
-          >
-            <span aria-hidden="true">←</span>
-            {context.parentLabel ?? "返回上级"}
-          </Link>
-        ) : null}
+        <div className="flex flex-wrap gap-2">
+          {context.parentHref && context.parentHref !== "/dashboard" ? (
+            <Link
+              href={context.parentHref}
+              className="inline-flex w-fit items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-sky-300 hover:text-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500"
+            >
+              <span aria-hidden="true">←</span>
+              {context.parentLabel ?? "返回上级"}
+            </Link>
+          ) : null}
+          {showHomeAction ? (
+            <Link
+              href="/dashboard"
+              className="inline-flex w-fit items-center gap-2 rounded-md bg-slate-950 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500"
+            >
+              <span aria-hidden="true">⌂</span>
+              返回主页
+            </Link>
+          ) : null}
+        </div>
       </div>
 
       {context.sectionItems.length > 0 ? (

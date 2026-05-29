@@ -8,6 +8,7 @@ describe("page context breadcrumbs", () => {
     const context = buildPageContext("/admin/base-data/students", navigationTree);
 
     expect(context.breadcrumbs.map((crumb) => crumb.title)).toEqual([
+      "工作台",
       "管理中心",
       "基础数据",
       "学生管理",
@@ -19,6 +20,7 @@ describe("page context breadcrumbs", () => {
     const context = buildPageContext("/teacher/results/class-1", navigationTree);
 
     expect(context.breadcrumbs.map((crumb) => crumb.title)).toEqual([
+      "工作台",
       "教师发展",
       "评价结果",
       "评价详情",
@@ -33,6 +35,7 @@ describe("page context breadcrumbs", () => {
     );
 
     expect(context.breadcrumbs.map((crumb) => crumb.title)).toEqual([
+      "工作台",
       "学生评教",
       "我的评教",
       "填写评教",
@@ -44,6 +47,7 @@ describe("page context breadcrumbs", () => {
     const context = buildPageContext("/student/evaluations", navigationTree);
 
     expect(context.breadcrumbs.map((crumb) => crumb.title)).toEqual([
+      "工作台",
       "学生评教",
       "我的评教",
     ]);
@@ -68,6 +72,22 @@ describe("page context breadcrumbs", () => {
 
     expect(context.sectionTitle).toBe("管理中心");
     expect(context.sectionItems.find((item) => item.current)?.title).toBe("学生管理");
+  });
+
+  it("keeps organization pages linked back to dashboard and base data", () => {
+    const context = buildPageContext(
+      "/admin/base-data/organizations",
+      navigationTree,
+    );
+
+    expect(context.breadcrumbs.map((crumb) => crumb.title)).toEqual([
+      "工作台",
+      "管理中心",
+      "基础数据",
+      "组织结构",
+    ]);
+    expect(context.breadcrumbs[0]?.href).toBe("/dashboard");
+    expect(context.parentHref).toBe("/admin/base-data");
   });
 
   it("does not show a return target on top-level pages", () => {

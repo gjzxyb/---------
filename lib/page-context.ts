@@ -102,7 +102,11 @@ function buildStaticBreadcrumbs(
     return [{ title: "工作台", href: "/dashboard" }, { title: "当前页面", current: true }];
   }
 
+  const homeCrumb =
+    pathname === dashboardHref ? [] : [{ title: "工作台", href: "/dashboard" }];
+
   return [
+    ...homeCrumb,
     { title: exact.groupTitle },
     ...ancestors.map((entry, index) => ({
       title: entry.title,
