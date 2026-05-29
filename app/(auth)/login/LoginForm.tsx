@@ -42,17 +42,17 @@ export default function LoginForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm"
+      className="rounded-lg border border-white/15 bg-white/[0.08] p-6 shadow-2xl shadow-sky-950/40 backdrop-blur-xl"
     >
       <div>
-        <h2 className="text-xl font-semibold text-zinc-950">登录</h2>
-        <p className="mt-2 text-sm text-zinc-600">
+        <h2 className="text-xl font-semibold text-white">登录</h2>
+        <p className="mt-2 text-sm text-slate-300">
           请使用学校账号继续访问。
         </p>
       </div>
 
       <div className="mt-6 space-y-4">
-        <label className="block text-sm font-medium text-zinc-800">
+        <label className="block text-sm font-medium text-slate-200">
           邮箱
           <input
             type="email"
@@ -60,11 +60,11 @@ export default function LoginForm() {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             required
-            className="mt-2 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-zinc-950 outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100"
+            className="mt-2 block w-full rounded-md border border-white/15 bg-white/95 px-3 py-2 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-sky-300 focus:ring-2 focus:ring-sky-300/30"
           />
         </label>
 
-        <label className="block text-sm font-medium text-zinc-800">
+        <label className="block text-sm font-medium text-slate-200">
           密码
           <input
             type="password"
@@ -72,13 +72,13 @@ export default function LoginForm() {
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             required
-            className="mt-2 block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-zinc-950 outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-100"
+            className="mt-2 block w-full rounded-md border border-white/15 bg-white/95 px-3 py-2 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-sky-300 focus:ring-2 focus:ring-sky-300/30"
           />
         </label>
       </div>
 
       {error ? (
-        <p role="alert" className="mt-4 text-sm font-medium text-red-700">
+        <p role="alert" className="mt-4 rounded-md border border-red-300/30 bg-red-500/10 px-3 py-2 text-sm font-medium text-red-100">
           {error}
         </p>
       ) : null}
@@ -86,7 +86,7 @@ export default function LoginForm() {
       <button
         type="submit"
         disabled={isSubmitting}
-        className="mt-6 w-full rounded-md bg-sky-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-zinc-400"
+        className="mt-6 w-full rounded-md bg-sky-400 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-sky-300 disabled:cursor-not-allowed disabled:bg-slate-500 disabled:text-slate-200"
       >
         {isSubmitting ? "正在登录..." : "登录"}
       </button>
