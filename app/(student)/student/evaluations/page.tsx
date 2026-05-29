@@ -111,9 +111,83 @@ function EvaluationTable({
   emptyText: string;
   mode: "pending" | "completed";
 }) {
+  const rows = assignments.map((assignment) => {
+    const statusLabel =
+      mode === "completed"
+        ? "已提交"
+        : assignment.response?.status === "DRAFT"
+          ? "草稿"
+          : "待填写";
+    const dateLabel =
+      mode === "completed"
+        ? formatDate(assignment.response?.submittedAt ?? null)
+        : formatDate(assignment.task.endsAt);
+
+    return { assignment, dateLabel, statusLabel };
+  });
+
   return (
-    <div className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
-      <table className="min-w-full divide-y divide-slate-200">
+    <>
+      <div className="space-y-3 md:hidden">
+        {rows.length ? (
+          rows.map(({ assignment, dateLabel, statusLabel }) => (
+            <article
+              key={assignment.id}
+              className="rounded-md border border-slate-200 bg-white p-4 shadow-sm"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="truncate text-base font-semibold text-slate-950">
+                    {assignment.teachingClass.course.name}
+                  </h3>
+                  <p className="mt-1 text-sm leading-5 text-slate-600">
+                    {assignment.teachingClass.course.code} ·{" "}
+                    {assignment.teachingClass.name}
+                  </p>
+                </div>
+                <StatusBadge tone={mode === "completed" ? "success" : "warning"}>
+                  {statusLabel}
+                </StatusBadge>
+              </div>
+              <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                <div className="rounded-md bg-slate-50 p-3">
+                  <dt className="text-xs font-medium text-slate-500">教师</dt>
+                  <dd className="mt-1 text-slate-900">
+                    {assignment.teachingClass.teacher.name}
+                  </dd>
+                </div>
+                <div className="rounded-md bg-slate-50 p-3">
+                  <dt className="text-xs font-medium text-slate-500">
+                    {mode === "completed" ? "提交日期" : "截止日期"}
+                  </dt>
+                  <dd className="mt-1 text-slate-900">{dateLabel}</dd>
+                </div>
+              </dl>
+              <div className="mt-3 rounded-md bg-slate-50 p-3 text-sm text-slate-600">
+                <div className="font-medium text-slate-900">
+                  {assignment.task.name}
+                </div>
+                <div className="mt-1 text-xs text-slate-500">
+                  {assignment.task.term}
+                </div>
+              </div>
+              <Link
+                href={`/student/evaluations/${assignment.id}`}
+                className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-medium text-white"
+              >
+                {mode === "completed" ? "查看详情" : "填写评教"}
+              </Link>
+            </article>
+          ))
+        ) : (
+          <div className="rounded-md border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
+            {emptyText}
+          </div>
+        )}
+      </div>
+
+      <div className="hidden overflow-x-auto rounded-md border border-slate-200 bg-white shadow-sm md:block">
+        <table className="min-w-full divide-y divide-slate-200">
         <thead className="bg-slate-50">
           <tr>
             <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-500">
@@ -137,8 +211,8 @@ function EvaluationTable({
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 bg-white">
-          {assignments.length ? (
-            assignments.map((assignment) => (
+          {rows.length ? (
+            rows.map(({ assignment, dateLabel, statusLabel }) => (
               <tr key={assignment.id}>
                 <td className="px-4 py-4 text-sm text-slate-900">
                   <div className="font-medium">
@@ -162,17 +236,11 @@ function EvaluationTable({
                   <StatusBadge
                     tone={mode === "completed" ? "success" : "warning"}
                   >
-                    {mode === "completed"
-                      ? "已提交"
-                      : assignment.response?.status === "DRAFT"
-                        ? "草稿"
-                        : "待填写"}
+                    {statusLabel}
                   </StatusBadge>
                 </td>
                 <td className="px-4 py-4 text-sm text-slate-600">
-                  {mode === "completed"
-                    ? formatDate(assignment.response?.submittedAt ?? null)
-                    : formatDate(assignment.task.endsAt)}
+                  {dateLabel}
                 </td>
                 <td className="px-4 py-4 text-right text-sm">
                   <Link
@@ -195,8 +263,9 @@ function EvaluationTable({
             </tr>
           )}
         </tbody>
-      </table>
-    </div>
+        </table>
+      </div>
+    </>
   );
 }
 
@@ -207,10 +276,10 @@ export default async function StudentEvaluationsPage() {
   );
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8">
+    <div className="mx-auto max-w-6xl space-y-6 sm:space-y-8">
       <div>
         <StatusBadge tone="info">学生评教</StatusBadge>
-        <h1 className="mt-3 text-2xl font-semibold tracking-normal text-slate-950">
+        <h1 className="mt-3 text-xl font-semibold tracking-normal text-slate-950 sm:text-2xl">
           我的评教任务
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">

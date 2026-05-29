@@ -129,7 +129,7 @@ export default async function StudentEvaluationDetailPage({
   const isEditable = isOpen && isWithinWindow && !isSubmitted;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto max-w-4xl space-y-5 sm:space-y-6">
       <Link
         href="/student/evaluations"
         className="text-sm font-medium text-sky-700 transition hover:text-sky-900"
@@ -137,13 +137,13 @@ export default async function StudentEvaluationDetailPage({
         返回我的评教
       </Link>
 
-      <section className="rounded-md border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
+          <div className="min-w-0">
             <StatusBadge tone={isSubmitted ? "success" : "info"}>
               {isSubmitted ? "已提交" : "评教问卷"}
             </StatusBadge>
-            <h1 className="mt-3 text-2xl font-semibold tracking-normal text-slate-950">
+            <h1 className="mt-3 text-xl font-semibold tracking-normal text-slate-950 sm:text-2xl">
               {assignment.teachingClass.course.name}
             </h1>
             <p className="mt-2 text-sm leading-6 text-slate-600">
@@ -152,12 +152,12 @@ export default async function StudentEvaluationDetailPage({
               {assignment.teachingClass.teacher.name}
             </p>
           </div>
-          <div className="text-sm text-slate-600 sm:text-right">
+          <div className="rounded-md bg-slate-50 p-3 text-sm text-slate-600 sm:bg-transparent sm:p-0 sm:text-right">
             <div>{assignment.task.name}</div>
             <div className="mt-1">{assignment.task.term}</div>
           </div>
         </div>
-        <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-3">
+        <dl className="mt-4 grid gap-3 text-sm sm:mt-5 sm:grid-cols-3">
           <div className="rounded-md bg-slate-50 p-3">
             <dt className="font-medium text-slate-500">开始日期</dt>
             <dd className="mt-1 text-slate-900">

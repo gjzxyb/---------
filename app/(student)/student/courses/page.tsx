@@ -88,7 +88,7 @@ export default async function StudentCoursesPage({
     <div className="mx-auto max-w-7xl space-y-6">
       <div>
         <StatusBadge tone="info">学生评教</StatusBadge>
-        <h1 className="mt-3 text-2xl font-semibold tracking-normal text-slate-950">
+        <h1 className="mt-3 text-xl font-semibold tracking-normal text-slate-950 sm:text-2xl">
           我的选课
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
@@ -132,54 +132,126 @@ export default async function StudentCoursesPage({
           </Link>
         </div>
 
-        <DataTable
-          headers={["课程", "教师", "组织", "同班人数", "评教派发", "操作"]}
-          emptyText="暂无已选教学班。"
-          rows={enrollments.map((enrollment) => {
-            const teachingClass = enrollment.teachingClass;
-            const assignmentCount = teachingClass._count.assignments;
-            const canUnenroll = canSelfUnenroll(assignmentCount);
+        <div className="space-y-3 md:hidden">
+          {enrollments.length ? (
+            enrollments.map((enrollment) => {
+              const teachingClass = enrollment.teachingClass;
+              const assignmentCount = teachingClass._count.assignments;
+              const canUnenroll = canSelfUnenroll(assignmentCount);
 
-            return [
-              <div key="course">
-                <div className="font-medium text-slate-950">
-                  {teachingClass.course.name}
-                </div>
-                <div className="mt-1 text-xs text-slate-500">
-                  {teachingClass.course.code} · {teachingClass.name} ·{" "}
-                  {teachingClass.term}
-                </div>
-              </div>,
-              teachingClass.teacher.name,
-              teachingClass.organization?.name ?? "未归属",
-              teachingClass._count.enrollments,
-              assignmentCount > 0 ? (
-                <StatusBadge key="locked" tone="warning">
-                  已派发
-                </StatusBadge>
-              ) : (
-                <StatusBadge key="free" tone="neutral">
-                  未派发
-                </StatusBadge>
-              ),
-              <form key="action" action={selfUnenrollTeachingClass}>
-                <input
-                  type="hidden"
-                  name="teachingClassId"
-                  value={teachingClass.id}
-                />
-                <button
-                  type="submit"
-                  disabled={!canUnenroll}
-                  title={canUnenroll ? "退选教学班" : "已有评教派发，不可退选"}
-                  className="font-medium text-rose-700 transition hover:text-rose-900 disabled:cursor-not-allowed disabled:text-slate-400"
+              return (
+                <article
+                  key={enrollment.id}
+                  className="rounded-md border border-slate-200 bg-white p-4 shadow-sm"
                 >
-                  退选
-                </button>
-              </form>,
-            ];
-          })}
-        />
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="truncate text-base font-semibold text-slate-950">
+                        {teachingClass.course.name}
+                      </h3>
+                      <p className="mt-1 text-sm leading-5 text-slate-600">
+                        {teachingClass.course.code} · {teachingClass.name} ·{" "}
+                        {teachingClass.term}
+                      </p>
+                    </div>
+                    {assignmentCount > 0 ? (
+                      <StatusBadge tone="warning">已派发</StatusBadge>
+                    ) : (
+                      <StatusBadge tone="neutral">未派发</StatusBadge>
+                    )}
+                  </div>
+                  <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                    <div className="rounded-md bg-slate-50 p-3">
+                      <dt className="text-xs font-medium text-slate-500">教师</dt>
+                      <dd className="mt-1 text-slate-900">
+                        {teachingClass.teacher.name}
+                      </dd>
+                    </div>
+                    <div className="rounded-md bg-slate-50 p-3">
+                      <dt className="text-xs font-medium text-slate-500">同班人数</dt>
+                      <dd className="mt-1 text-slate-900">
+                        {teachingClass._count.enrollments}
+                      </dd>
+                    </div>
+                  </dl>
+                  <p className="mt-3 rounded-md bg-slate-50 p-3 text-sm text-slate-600">
+                    {teachingClass.organization?.name ?? "未归属"}
+                  </p>
+                  <form className="mt-4" action={selfUnenrollTeachingClass}>
+                    <input
+                      type="hidden"
+                      name="teachingClassId"
+                      value={teachingClass.id}
+                    />
+                    <button
+                      type="submit"
+                      disabled={!canUnenroll}
+                      title={canUnenroll ? "退选教学班" : "已有评教派发，不可退选"}
+                      className="min-h-11 w-full rounded-md border border-rose-200 bg-rose-50 px-4 text-sm font-medium text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                    >
+                      退选
+                    </button>
+                  </form>
+                </article>
+              );
+            })
+          ) : (
+            <div className="rounded-md border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
+              暂无已选教学班。
+            </div>
+          )}
+        </div>
+
+        <div className="hidden md:block">
+          <DataTable
+            headers={["课程", "教师", "组织", "同班人数", "评教派发", "操作"]}
+            emptyText="暂无已选教学班。"
+            rows={enrollments.map((enrollment) => {
+              const teachingClass = enrollment.teachingClass;
+              const assignmentCount = teachingClass._count.assignments;
+              const canUnenroll = canSelfUnenroll(assignmentCount);
+
+              return [
+                <div key="course">
+                  <div className="font-medium text-slate-950">
+                    {teachingClass.course.name}
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    {teachingClass.course.code} · {teachingClass.name} ·{" "}
+                    {teachingClass.term}
+                  </div>
+                </div>,
+                teachingClass.teacher.name,
+                teachingClass.organization?.name ?? "未归属",
+                teachingClass._count.enrollments,
+                assignmentCount > 0 ? (
+                  <StatusBadge key="locked" tone="warning">
+                    已派发
+                  </StatusBadge>
+                ) : (
+                  <StatusBadge key="free" tone="neutral">
+                    未派发
+                  </StatusBadge>
+                ),
+                <form key="action" action={selfUnenrollTeachingClass}>
+                  <input
+                    type="hidden"
+                    name="teachingClassId"
+                    value={teachingClass.id}
+                  />
+                  <button
+                    type="submit"
+                    disabled={!canUnenroll}
+                    title={canUnenroll ? "退选教学班" : "已有评教派发，不可退选"}
+                    className="font-medium text-rose-700 transition hover:text-rose-900 disabled:cursor-not-allowed disabled:text-slate-400"
+                  >
+                    退选
+                  </button>
+                </form>,
+              ];
+            })}
+          />
+        </div>
       </section>
 
       <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">

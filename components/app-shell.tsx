@@ -43,8 +43,8 @@ export function AppShell({ children, navigation, session }: AppShellProps) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="app-header flex min-h-20 items-center justify-between border-b border-slate-200 bg-white px-4 py-4 sm:px-7">
-          <div className="min-w-0">
+        <header className="app-header flex min-h-20 flex-col gap-3 border-b border-slate-200 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+          <div className="min-w-0 self-stretch sm:self-auto">
             <p className="truncate text-sm font-medium text-slate-500">
               {user.email}
             </p>
@@ -52,24 +52,24 @@ export function AppShell({ children, navigation, session }: AppShellProps) {
               {user.name ?? "未命名用户"}
             </h2>
           </div>
-          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto sm:gap-3">
             <ThemeToggle compact />
             <StatusBadge tone="info">{roleLabels[user.role]}</StatusBadge>
             <button
               type="button"
               onClick={() => void signOut({ callbackUrl: "/login" })}
-              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-sky-500"
+              className="ml-auto rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-sky-500 sm:ml-0"
             >
               退出
             </button>
           </div>
         </header>
 
-        <div className="app-mobile-nav border-b border-slate-200 bg-slate-950 px-4 py-3 lg:hidden">
+        <div className="app-mobile-nav overflow-x-auto border-b border-slate-200 bg-slate-950 px-4 py-3 lg:hidden">
           <Nav groups={navigation} />
         </div>
 
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+        <main className="flex-1 px-3 py-5 sm:px-6 sm:py-6 lg:px-8">
           <PageContextBar navigation={navigation} />
           {children}
         </main>
