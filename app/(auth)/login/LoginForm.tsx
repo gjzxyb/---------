@@ -45,15 +45,15 @@ export default function LoginForm() {
       className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm"
     >
       <div>
-        <h2 className="text-xl font-semibold text-zinc-950">Sign in</h2>
+        <h2 className="text-xl font-semibold text-zinc-950">登录</h2>
         <p className="mt-2 text-sm text-zinc-600">
-          Use your institutional account to continue.
+          请使用学校账号继续访问。
         </p>
       </div>
 
       <div className="mt-6 space-y-4">
         <label className="block text-sm font-medium text-zinc-800">
-          Email
+          邮箱
           <input
             type="email"
             autoComplete="email"
@@ -65,7 +65,7 @@ export default function LoginForm() {
         </label>
 
         <label className="block text-sm font-medium text-zinc-800">
-          Password
+          密码
           <input
             type="password"
             autoComplete="current-password"
@@ -88,7 +88,7 @@ export default function LoginForm() {
         disabled={isSubmitting}
         className="mt-6 w-full rounded-md bg-sky-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-zinc-400"
       >
-        {isSubmitting ? "Signing in..." : "Sign in"}
+        {isSubmitting ? "正在登录..." : "登录"}
       </button>
     </form>
   );

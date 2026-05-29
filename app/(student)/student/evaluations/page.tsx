@@ -163,10 +163,10 @@ function EvaluationTable({
                     tone={mode === "completed" ? "success" : "warning"}
                   >
                     {mode === "completed"
-                      ? "Submitted"
+                      ? "已提交"
                       : assignment.response?.status === "DRAFT"
-                        ? "Draft"
-                        : "Pending"}
+                        ? "草稿"
+                        : "待填写"}
                   </StatusBadge>
                 </td>
                 <td className="px-4 py-4 text-sm text-slate-600">
@@ -226,7 +226,7 @@ export default async function StudentEvaluationsPage() {
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-slate-950">Pending</h2>
+          <h2 className="text-base font-semibold text-slate-950">待评价</h2>
           <StatusBadge tone="warning">{pending.length} 项</StatusBadge>
         </div>
         <EvaluationTable
@@ -238,7 +238,7 @@ export default async function StudentEvaluationsPage() {
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-slate-950">Completed</h2>
+          <h2 className="text-base font-semibold text-slate-950">已评价</h2>
           <StatusBadge tone="success">{completed.length} 项</StatusBadge>
         </div>
         <EvaluationTable

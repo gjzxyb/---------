@@ -141,7 +141,7 @@ export default async function StudentEvaluationDetailPage({
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <StatusBadge tone={isSubmitted ? "success" : "info"}>
-              {isSubmitted ? "Submitted" : "Questionnaire"}
+              {isSubmitted ? "已提交" : "评教问卷"}
             </StatusBadge>
             <h1 className="mt-3 text-2xl font-semibold tracking-normal text-slate-950">
               {assignment.teachingClass.course.name}

@@ -121,14 +121,14 @@ export function Questionnaire({
             formNoValidate
             className="inline-flex justify-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-sky-500"
           >
-            Save draft
+            保存草稿
           </button>
           <button
             type="submit"
             formAction={submitEvaluation}
             className="inline-flex justify-center rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500"
           >
-            Submit
+            提交评教
           </button>
         </div>
       ) : null}
