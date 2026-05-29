@@ -42,7 +42,10 @@ type TeacherReportAssignment = {
   submittedAt: Date | null;
   response: {
     status: string;
-    answers: { score: number | null }[];
+    answers: {
+      question: { maxScore: number | null };
+      score: number | null;
+    }[];
   } | null;
   task: { id: string; name: string; term: string };
   teachingClass: {
@@ -106,6 +109,15 @@ function buildAssignmentWhere(
   return { AND: filters };
 }
 
+function scoreAnswerValue(score: number, maxScore: number | null | undefined) {
+  const effectiveMaxScore =
+    typeof maxScore === "number" && Number.isFinite(maxScore) && maxScore > 0
+      ? maxScore
+      : 5;
+
+  return Math.min(score, effectiveMaxScore);
+}
+
 function buildEvaluationPoints(assignments: TeacherReportAssignment[]) {
   const buckets = new Map<string, TeacherEvaluationPoint>();
 
@@ -136,8 +148,10 @@ function buildEvaluationPoints(assignments: TeacherReportAssignment[]) {
 
     assignment.response?.answers.forEach((answer) => {
       if (assignment.response?.status === "SUBMITTED" && answer.score !== null) {
+        const score = scoreAnswerValue(answer.score, answer.question.maxScore);
+
         bucket.scoreCount += 1;
-        bucket.scoreTotal += answer.score;
+        bucket.scoreTotal += score;
       }
     });
 
@@ -186,7 +200,12 @@ async function loadTeacherReport(
       include: {
         response: {
           include: {
-            answers: { select: { score: true } },
+            answers: {
+              select: {
+                question: { select: { maxScore: true } },
+                score: true,
+              },
+            },
           },
         },
         task: { select: { id: true, name: true, term: true } },

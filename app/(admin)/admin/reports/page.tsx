@@ -58,7 +58,7 @@ type ReportResponse = {
   answers: {
     score: number | null;
     text: string | null;
-    question: { id: string; title: string; type: string };
+    question: { id: string; maxScore: number | null; title: string; type: string };
   }[];
   assignment: ReportAssignment;
 };
@@ -69,6 +69,8 @@ type ReportBucket = {
   label: string;
   scoreCount: number;
   scoreTotal: number;
+  submittedScoreCount: number;
+  submittedScoreTotal: number;
   submitted: number;
 };
 
@@ -127,6 +129,8 @@ function getBucket(buckets: Map<string, ReportBucket>, key: string, label: strin
       label,
       scoreCount: 0,
       scoreTotal: 0,
+      submittedScoreCount: 0,
+      submittedScoreTotal: 0,
       submitted: 0,
     } satisfies ReportBucket);
 
@@ -150,28 +154,49 @@ function addAssignmentToBucket(
   }
 }
 
+function scoreAnswerValue(score: number, maxScore: number | null | undefined) {
+  const effectiveMaxScore =
+    typeof maxScore === "number" && Number.isFinite(maxScore) && maxScore > 0
+      ? maxScore
+      : 5;
+
+  return Math.min(score, effectiveMaxScore);
+}
+
 function addResponseScoresToBucket(
   buckets: Map<string, ReportBucket>,
   key: string,
   label: string,
   response: ReportResponse,
+  options: { includeParticipantScore?: boolean } = {},
 ) {
   const bucket = getBucket(buckets, key, label);
+  let responseScore = 0;
+  let responseScoreCount = 0;
 
   response.answers.forEach((answer) => {
     if (answer.score !== null) {
+      const score = scoreAnswerValue(answer.score, answer.question.maxScore);
+
       bucket.scoreCount += 1;
-      bucket.scoreTotal += answer.score;
+      bucket.scoreTotal += score;
+      responseScore += score;
+      responseScoreCount += 1;
     }
   });
+
+  if (options.includeParticipantScore && responseScoreCount > 0) {
+    bucket.submittedScoreCount += 1;
+    bucket.submittedScoreTotal += responseScore;
+  }
 }
 
 function teacherScorePerParticipant(
   aggregate: ReturnType<typeof finalizeBuckets>[number],
 ) {
-  return aggregate.submitted === 0
+  return aggregate.submittedScoreCount === 0
     ? 0
-    : roundMetric(aggregate.scoreTotal / aggregate.submitted);
+    : roundMetric(aggregate.submittedScoreTotal / aggregate.submittedScoreCount);
 }
 
 function finalizeBuckets(buckets: Map<string, ReportBucket>) {
@@ -303,7 +328,7 @@ function teacherBucketRows(
       formatPercent(aggregate.responseRate),
       sampleHidden
         ? "小样本隐藏"
-        : `${teacherScorePerParticipant(aggregate)} / ${formatInteger(aggregate.submitted)} 人`,
+        : `${teacherScorePerParticipant(aggregate)} / ${formatInteger(aggregate.submittedScoreCount)} 人`,
       <StatusBadge
         key="status"
         tone={
@@ -390,6 +415,7 @@ function buildAggregates(
       assignment.teachingClass.teacher.id,
       assignment.teachingClass.teacher.name,
       response,
+      { includeParticipantScore: true },
     );
     addResponseScoresToBucket(
       courses,
@@ -603,7 +629,7 @@ async function loadReportData(
       include: {
         answers: {
           select: {
-            question: { select: { id: true, title: true, type: true } },
+            question: { select: { id: true, maxScore: true, title: true, type: true } },
             score: true,
             text: true,
           },
