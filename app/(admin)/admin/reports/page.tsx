@@ -23,6 +23,18 @@ import {
 } from "@/lib/demo-data";
 
 const LOW_RESPONSE_RATE = 60;
+const REPORT_PAGE_SIZE = 10;
+
+type ReportPageKey =
+  | "classPage"
+  | "commentPage"
+  | "coursePage"
+  | "departmentPage"
+  | "questionPage"
+  | "schoolPage"
+  | "teacherPage"
+  | "warningPage";
+
 type ReportsPageSearchParams = Promise<
   Record<string, string | string[] | undefined>
 >;
@@ -82,6 +94,135 @@ type ReportData = {
   teachers: Array<{ id: string; name: string }>;
   terms: string[];
 };
+
+function firstSearchValue(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function parsePageNumber(
+  searchParams: Record<string, string | string[] | undefined>,
+  key: ReportPageKey,
+) {
+  const page = Number(firstSearchValue(searchParams[key]));
+
+  return Number.isFinite(page) && page > 0 ? Math.trunc(page) : 1;
+}
+
+function paginateItems<T>(
+  items: T[],
+  searchParams: Record<string, string | string[] | undefined>,
+  key: ReportPageKey,
+) {
+  const totalPages = Math.max(Math.ceil(items.length / REPORT_PAGE_SIZE), 1);
+  const currentPage = Math.min(parsePageNumber(searchParams, key), totalPages);
+  const start = (currentPage - 1) * REPORT_PAGE_SIZE;
+
+  return {
+    currentPage,
+    items: items.slice(start, start + REPORT_PAGE_SIZE),
+    pageSize: REPORT_PAGE_SIZE,
+    totalItems: items.length,
+    totalPages,
+  };
+}
+
+function buildReportPageHref(
+  searchParams: Record<string, string | string[] | undefined>,
+  key: ReportPageKey,
+  page: number,
+) {
+  const params = new URLSearchParams();
+
+  Object.entries(searchParams).forEach(([paramKey, value]) => {
+    if (paramKey === key) {
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach((item) => {
+        if (item) {
+          params.append(paramKey, item);
+        }
+      });
+      return;
+    }
+
+    if (value) {
+      params.set(paramKey, value);
+    }
+  });
+
+  if (page > 1) {
+    params.set(key, String(page));
+  }
+
+  const queryString = params.toString();
+
+  return queryString ? `/admin/reports?${queryString}` : "/admin/reports";
+}
+
+function PaginationControls({
+  label,
+  page,
+  pageKey,
+  searchParams,
+}: {
+  label: string;
+  page: ReturnType<typeof paginateItems>;
+  pageKey: ReportPageKey;
+  searchParams: Record<string, string | string[] | undefined>;
+}) {
+  if (page.totalItems <= page.pageSize) {
+    return null;
+  }
+
+  const start = (page.currentPage - 1) * page.pageSize + 1;
+  const end = Math.min(page.currentPage * page.pageSize, page.totalItems);
+
+  return (
+    <div className="flex flex-col gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+      <span>
+        {label}：{formatInteger(start)}-{formatInteger(end)} /{" "}
+        {formatInteger(page.totalItems)}
+      </span>
+      <div className="flex items-center gap-2">
+        <Link
+          aria-disabled={page.currentPage <= 1}
+          className={`rounded-md border border-slate-300 px-3 py-1.5 font-medium ${
+            page.currentPage <= 1
+              ? "pointer-events-none text-slate-300"
+              : "text-slate-700 hover:bg-slate-50"
+          }`}
+          href={buildReportPageHref(
+            searchParams,
+            pageKey,
+            Math.max(1, page.currentPage - 1),
+          )}
+        >
+          上一页
+        </Link>
+        <span className="min-w-16 text-center text-xs text-slate-500">
+          {formatInteger(page.currentPage)} / {formatInteger(page.totalPages)}
+        </span>
+        <Link
+          aria-disabled={page.currentPage >= page.totalPages}
+          className={`rounded-md border border-slate-300 px-3 py-1.5 font-medium ${
+            page.currentPage >= page.totalPages
+              ? "pointer-events-none text-slate-300"
+              : "text-slate-700 hover:bg-slate-50"
+          }`}
+          href={buildReportPageHref(
+            searchParams,
+            pageKey,
+            Math.min(page.totalPages, page.currentPage + 1),
+          )}
+        >
+          下一页
+        </Link>
+      </div>
+    </div>
+  );
+}
 
 function findOrganizationByType(
   organization: ReportOrganization | null,
@@ -721,7 +862,8 @@ export default async function AdminReportsPage({
   searchParams: ReportsPageSearchParams;
 }) {
   await requireRole([...ADMIN_REPORT_ROLES]);
-  const query = parseReportQuery(await searchParams);
+  const rawSearchParams = await searchParams;
+  const query = parseReportQuery(rawSearchParams);
   const {
     assignments,
     courses,
@@ -760,6 +902,18 @@ export default async function AdminReportsPage({
   const classExportHref = `/admin/reports/classes/export?${buildReportSearchParams(query).toString()}`;
   const selectedTeacher = teachers.find((teacher) => teacher.id === query.teacherId);
   const teacherKeyword = query.teacherName ?? selectedTeacher?.name ?? "";
+  const schoolPage = paginateItems(aggregates.schools, rawSearchParams, "schoolPage");
+  const departmentPage = paginateItems(
+    aggregates.departments,
+    rawSearchParams,
+    "departmentPage",
+  );
+  const teacherPage = paginateItems(aggregates.teachers, rawSearchParams, "teacherPage");
+  const coursePage = paginateItems(aggregates.courses, rawSearchParams, "coursePage");
+  const classPage = paginateItems(aggregates.classes, rawSearchParams, "classPage");
+  const questionPage = paginateItems(questionSummaries, rawSearchParams, "questionPage");
+  const warningPage = paginateItems(warnings, rawSearchParams, "warningPage");
+  const commentPage = paginateItems(textComments, rawSearchParams, "commentPage");
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -878,22 +1032,26 @@ export default async function AdminReportsPage({
       <section className="grid gap-6 xl:grid-cols-2">
         <div className="space-y-3">
           <h2 className="text-base font-semibold text-slate-950">学校报表</h2>
-          <DataTable headers={["学校", "提交/派发", "回收率", "生均得分", "状态"]} emptyText="暂无学校汇总。" rows={bucketRows(aggregates.schools)} />
+          <DataTable headers={["学校", "提交/派发", "回收率", "生均得分", "状态"]} emptyText="暂无学校汇总。" rows={bucketRows(schoolPage.items)} />
+          <PaginationControls label="学校" page={schoolPage} pageKey="schoolPage" searchParams={rawSearchParams} />
         </div>
         <div className="space-y-3">
           <h2 className="text-base font-semibold text-slate-950">院系报表</h2>
-          <DataTable headers={["院系", "提交/派发", "回收率", "生均得分", "状态"]} emptyText="暂无院系汇总。" rows={bucketRows(aggregates.departments)} />
+          <DataTable headers={["院系", "提交/派发", "回收率", "生均得分", "状态"]} emptyText="暂无院系汇总。" rows={bucketRows(departmentPage.items)} />
+          <PaginationControls label="院系" page={departmentPage} pageKey="departmentPage" searchParams={rawSearchParams} />
         </div>
       </section>
 
       <section className="grid gap-6 xl:grid-cols-2">
         <div className="space-y-3">
           <h2 className="text-base font-semibold text-slate-950">教师报表</h2>
-          <DataTable headers={["教师", "提交/派发", "回收率", "生均得分", "状态"]} emptyText="暂无教师汇总。" rows={teacherBucketRows(aggregates.teachers, query)} />
+          <DataTable headers={["教师", "提交/派发", "回收率", "生均得分", "状态"]} emptyText="暂无教师汇总。" rows={teacherBucketRows(teacherPage.items, query)} />
+          <PaginationControls label="教师" page={teacherPage} pageKey="teacherPage" searchParams={rawSearchParams} />
         </div>
         <div className="space-y-3">
           <h2 className="text-base font-semibold text-slate-950">课程报表</h2>
-          <DataTable headers={["课程", "提交/派发", "回收率", "生均得分", "状态"]} emptyText="暂无课程汇总。" rows={bucketRows(aggregates.courses)} />
+          <DataTable headers={["课程", "提交/派发", "回收率", "生均得分", "状态"]} emptyText="暂无课程汇总。" rows={bucketRows(coursePage.items)} />
+          <PaginationControls label="课程" page={coursePage} pageKey="coursePage" searchParams={rawSearchParams} />
         </div>
       </section>
 
@@ -907,7 +1065,8 @@ export default async function AdminReportsPage({
             导出教学班 Excel
           </Link>
         </div>
-        <DataTable headers={["教学班", "提交/派发", "回收率", "生均得分", "状态"]} emptyText="暂无教学班汇总。" rows={classBucketRows(aggregates.classes, query)} />
+        <DataTable headers={["教学班", "提交/派发", "回收率", "生均得分", "状态"]} emptyText="暂无教学班汇总。" rows={classBucketRows(classPage.items, query)} />
+        <PaginationControls label="教学班" page={classPage} pageKey="classPage" searchParams={rawSearchParams} />
         <p className="text-xs text-slate-500">
           点击教学班名称可查看该班所有学生的评教明细。
         </p>
@@ -919,7 +1078,7 @@ export default async function AdminReportsPage({
           <DataTable
             headers={["题目", "类型", "计分样本", "平均分", "文本意见"]}
             emptyText="暂无题目统计。"
-            rows={questionSummaries.map((question) => [
+            rows={questionPage.items.map((question) => [
               <div key="question" className="font-medium text-slate-900">
                 {question.title}
               </div>,
@@ -929,13 +1088,14 @@ export default async function AdminReportsPage({
               formatInteger(question.textCount),
             ])}
           />
+          <PaginationControls label="题目" page={questionPage} pageKey="questionPage" searchParams={rawSearchParams} />
         </div>
         <div className="space-y-3">
           <h2 className="text-base font-semibold text-slate-950">异常预警</h2>
           <DataTable
             headers={["类型", "对象", "详情", "等级"]}
             emptyText="暂无预警。"
-            rows={warnings.map((warning) => [
+            rows={warningPage.items.map((warning) => [
               warning.type,
               warning.label,
               warning.detail,
@@ -944,6 +1104,7 @@ export default async function AdminReportsPage({
               </StatusBadge>,
             ])}
           />
+          <PaginationControls label="预警" page={warningPage} pageKey="warningPage" searchParams={rawSearchParams} />
         </div>
       </section>
 
@@ -952,15 +1113,16 @@ export default async function AdminReportsPage({
         <DataTable
           headers={["提交时间", "课程/教学班", "题目", "脱敏意见"]}
           emptyText="暂无文本意见。"
-          rows={textComments.slice(0, 30).map((comment) => [
+          rows={commentPage.items.map((comment) => [
             formatDateTime(comment.submittedAt),
             `${comment.course} / ${comment.teachingClass}`,
             comment.question,
             comment.text,
           ])}
         />
+        <PaginationControls label="文本意见" page={commentPage} pageKey="commentPage" searchParams={rawSearchParams} />
         <p className="text-xs text-slate-500">
-          文本意见已隐藏邮箱、手机号和连续长数字，列表最多展示最近 30 条。
+          文本意见已隐藏邮箱、手机号和连续长数字，默认按分页展示。
         </p>
       </div>
     </div>
