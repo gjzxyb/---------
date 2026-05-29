@@ -56,6 +56,148 @@ type BaseData = {
   isDatabaseConfigured: boolean;
 };
 
+const BASE_DATA_PAGE_SIZE = 10;
+
+type BaseDataPageSearchParams = Promise<
+  Record<string, string | string[] | undefined>
+>;
+
+type BaseDataPageKey =
+  | "classPage"
+  | "coursePage"
+  | "organizationPage"
+  | "studentPage"
+  | "teacherPage";
+
+function firstSearchValue(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function parsePageNumber(
+  searchParams: Record<string, string | string[] | undefined>,
+  key: BaseDataPageKey,
+) {
+  const page = Number(firstSearchValue(searchParams[key]));
+
+  return Number.isFinite(page) && page > 0 ? Math.trunc(page) : 1;
+}
+
+function paginateItems<T>(
+  items: T[],
+  searchParams: Record<string, string | string[] | undefined>,
+  key: BaseDataPageKey,
+) {
+  const totalPages = Math.max(Math.ceil(items.length / BASE_DATA_PAGE_SIZE), 1);
+  const currentPage = Math.min(parsePageNumber(searchParams, key), totalPages);
+  const start = (currentPage - 1) * BASE_DATA_PAGE_SIZE;
+
+  return {
+    currentPage,
+    items: items.slice(start, start + BASE_DATA_PAGE_SIZE),
+    pageSize: BASE_DATA_PAGE_SIZE,
+    totalItems: items.length,
+    totalPages,
+  };
+}
+
+function buildPageHref(
+  searchParams: Record<string, string | string[] | undefined>,
+  key: BaseDataPageKey,
+  page: number,
+) {
+  const params = new URLSearchParams();
+
+  Object.entries(searchParams).forEach(([paramKey, value]) => {
+    if (paramKey === key) {
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach((item) => {
+        if (item) {
+          params.append(paramKey, item);
+        }
+      });
+      return;
+    }
+
+    if (value) {
+      params.set(paramKey, value);
+    }
+  });
+
+  if (page > 1) {
+    params.set(key, String(page));
+  }
+
+  const queryString = params.toString();
+
+  return queryString ? `/admin/base-data?${queryString}` : "/admin/base-data";
+}
+
+function PaginationControls({
+  label,
+  page,
+  pageKey,
+  searchParams,
+}: {
+  label: string;
+  page: ReturnType<typeof paginateItems>;
+  pageKey: BaseDataPageKey;
+  searchParams: Record<string, string | string[] | undefined>;
+}) {
+  if (page.totalItems <= page.pageSize) {
+    return null;
+  }
+
+  const start = (page.currentPage - 1) * page.pageSize + 1;
+  const end = Math.min(page.currentPage * page.pageSize, page.totalItems);
+
+  return (
+    <div className="flex flex-col gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+      <span>
+        {label}：{formatInteger(start)}-{formatInteger(end)} /{" "}
+        {formatInteger(page.totalItems)}
+      </span>
+      <div className="flex items-center gap-2">
+        <Link
+          aria-disabled={page.currentPage <= 1}
+          className={`rounded-md border border-slate-300 px-3 py-1.5 font-medium ${
+            page.currentPage <= 1
+              ? "pointer-events-none text-slate-300"
+              : "text-slate-700 hover:bg-slate-50"
+          }`}
+          href={buildPageHref(
+            searchParams,
+            pageKey,
+            Math.max(1, page.currentPage - 1),
+          )}
+        >
+          上一页
+        </Link>
+        <span className="min-w-16 text-center text-xs text-slate-500">
+          {formatInteger(page.currentPage)} / {formatInteger(page.totalPages)}
+        </span>
+        <Link
+          aria-disabled={page.currentPage >= page.totalPages}
+          className={`rounded-md border border-slate-300 px-3 py-1.5 font-medium ${
+            page.currentPage >= page.totalPages
+              ? "pointer-events-none text-slate-300"
+              : "text-slate-700 hover:bg-slate-50"
+          }`}
+          href={buildPageHref(
+            searchParams,
+            pageKey,
+            Math.min(page.totalPages, page.currentPage + 1),
+          )}
+        >
+          下一页
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 async function loadBaseData(): Promise<BaseData> {
   if (!isDatabaseConfigured()) {
     return {
@@ -95,7 +237,6 @@ async function loadBaseData(): Promise<BaseData> {
         teacherProfile: true,
       },
       orderBy: { name: "asc" },
-      take: 20,
     }),
     prisma.user.findMany({
       where: { role: "TEACHER" },
@@ -105,7 +246,6 @@ async function loadBaseData(): Promise<BaseData> {
         teacherProfile: { select: { teacherNo: true, title: true } },
       },
       orderBy: { name: "asc" },
-      take: 20,
     }),
     prisma.course.findMany({
       include: {
@@ -113,7 +253,6 @@ async function loadBaseData(): Promise<BaseData> {
         _count: { select: { teachingClasses: true } },
       },
       orderBy: { code: "asc" },
-      take: 30,
     }),
     prisma.teachingClass.findMany({
       include: {
@@ -123,7 +262,6 @@ async function loadBaseData(): Promise<BaseData> {
         _count: { select: { enrollments: true } },
       },
       orderBy: [{ term: "desc" }, { name: "asc" }],
-      take: 30,
     }),
     prisma.enrollment.count(),
   ]);
@@ -157,8 +295,13 @@ const baseDataLinks = [
   ["教学班与选课", "/admin/base-data/classes", "维护授课班级和学生选课关系"],
 ];
 
-export default async function AdminBaseDataPage() {
+export default async function AdminBaseDataPage({
+  searchParams,
+}: {
+  searchParams: BaseDataPageSearchParams;
+}) {
   await requireRole([...ADMIN_ROLES]);
+  const rawSearchParams = await searchParams;
   const {
     organizations,
     students,
@@ -168,6 +311,19 @@ export default async function AdminBaseDataPage() {
     enrollmentCount,
     isDatabaseConfigured,
   } = await loadBaseData();
+  const organizationPage = paginateItems(
+    organizations,
+    rawSearchParams,
+    "organizationPage",
+  );
+  const coursePage = paginateItems(courses, rawSearchParams, "coursePage");
+  const studentPage = paginateItems(students, rawSearchParams, "studentPage");
+  const teacherPage = paginateItems(teachers, rawSearchParams, "teacherPage");
+  const classPage = paginateItems(
+    teachingClasses,
+    rawSearchParams,
+    "classPage",
+  );
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -189,10 +345,10 @@ export default async function AdminBaseDataPage() {
 
       <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-6" aria-label="基础数据概览">
         <StatCard label="组织" value={formatInteger(organizations.length)} hint="学校、院系、班级" />
-        <StatCard label="学生" value={formatInteger(students.length)} hint="列表展示前 20 条" />
-        <StatCard label="教师" value={formatInteger(teachers.length)} hint="列表展示前 20 条" />
-        <StatCard label="课程" value={formatInteger(courses.length)} hint="列表展示前 30 条" />
-        <StatCard label="教学班" value={formatInteger(teachingClasses.length)} hint="列表展示前 30 条" />
+        <StatCard label="学生" value={formatInteger(students.length)} hint="学生账号总数" />
+        <StatCard label="教师" value={formatInteger(teachers.length)} hint="教师账号总数" />
+        <StatCard label="课程" value={formatInteger(courses.length)} hint="课程总数" />
+        <StatCard label="教学班" value={formatInteger(teachingClasses.length)} hint="教学班总数" />
         <StatCard label="选课关系" value={formatInteger(enrollmentCount)} hint="Enrollment 总数" />
       </section>
 
@@ -215,13 +371,14 @@ export default async function AdminBaseDataPage() {
           <DataTable
             headers={["名称", "类型", "上级", "用户/课程/班级"]}
             emptyText="暂无组织数据。"
-            rows={organizations.map((organization) => [
+            rows={organizationPage.items.map((organization) => [
               organization.name,
               orgTypeLabel(organization.type),
               organization.parent?.name ?? "顶级组织",
               `${organization._count.users} / ${organization._count.courses} / ${organization._count.classes}`,
             ])}
           />
+          <PaginationControls label="组织" page={organizationPage} pageKey="organizationPage" searchParams={rawSearchParams} />
         </div>
 
         <div className="space-y-3">
@@ -229,7 +386,7 @@ export default async function AdminBaseDataPage() {
           <DataTable
             headers={["课程", "归属组织", "教学班数"]}
             emptyText="暂无课程数据。"
-            rows={courses.map((course) => [
+            rows={coursePage.items.map((course) => [
               <div key="course">
                 <div className="font-medium text-slate-900">{course.name}</div>
                 <div className="mt-1 text-xs text-slate-500">{course.code}</div>
@@ -238,6 +395,7 @@ export default async function AdminBaseDataPage() {
               formatInteger(course._count.teachingClasses),
             ])}
           />
+          <PaginationControls label="课程" page={coursePage} pageKey="coursePage" searchParams={rawSearchParams} />
         </div>
       </section>
 
@@ -247,7 +405,7 @@ export default async function AdminBaseDataPage() {
           <DataTable
             headers={["学生", "学号", "年级/专业", "状态"]}
             emptyText="暂无学生数据。"
-            rows={students.map((student) => [
+            rows={studentPage.items.map((student) => [
               <div key="student">
                 <div className="font-medium text-slate-900">{student.name}</div>
                 <div className="mt-1 text-xs text-slate-500">{student.email}</div>
@@ -257,6 +415,7 @@ export default async function AdminBaseDataPage() {
               student.status,
             ])}
           />
+          <PaginationControls label="学生" page={studentPage} pageKey="studentPage" searchParams={rawSearchParams} />
         </div>
 
         <div className="space-y-3">
@@ -264,7 +423,7 @@ export default async function AdminBaseDataPage() {
           <DataTable
             headers={["教师", "工号", "职称", "组织"]}
             emptyText="暂无教师数据。"
-            rows={teachers.map((teacher) => [
+            rows={teacherPage.items.map((teacher) => [
               <div key="teacher">
                 <div className="font-medium text-slate-900">{teacher.name}</div>
                 <div className="mt-1 text-xs text-slate-500">{teacher.email}</div>
@@ -274,6 +433,7 @@ export default async function AdminBaseDataPage() {
               teacher.organization.name,
             ])}
           />
+          <PaginationControls label="教师" page={teacherPage} pageKey="teacherPage" searchParams={rawSearchParams} />
         </div>
       </section>
 
@@ -282,7 +442,7 @@ export default async function AdminBaseDataPage() {
         <DataTable
           headers={["教学班", "课程", "教师", "组织", "选课人数"]}
           emptyText="暂无教学班数据。"
-          rows={teachingClasses.map((teachingClass) => [
+          rows={classPage.items.map((teachingClass) => [
             <div key="class">
               <div className="font-medium text-slate-900">{teachingClass.name}</div>
               <div className="mt-1 text-xs text-slate-500">{teachingClass.term}</div>
@@ -293,6 +453,7 @@ export default async function AdminBaseDataPage() {
             formatInteger(teachingClass._count.enrollments),
           ])}
         />
+        <PaginationControls label="教学班" page={classPage} pageKey="classPage" searchParams={rawSearchParams} />
       </div>
     </div>
   );
