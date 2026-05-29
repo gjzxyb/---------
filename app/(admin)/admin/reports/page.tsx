@@ -23,8 +23,6 @@ import {
 } from "@/lib/demo-data";
 
 const LOW_RESPONSE_RATE = 60;
-const LOW_AVERAGE_SCORE = 3.5;
-
 type ReportsPageSearchParams = Promise<
   Record<string, string | string[] | undefined>
 >;
@@ -168,7 +166,6 @@ function addResponseScoresToBucket(
   key: string,
   label: string,
   response: ReportResponse,
-  options: { includeParticipantScore?: boolean } = {},
 ) {
   const bucket = getBucket(buckets, key, label);
   let responseScore = 0;
@@ -185,18 +182,28 @@ function addResponseScoresToBucket(
     }
   });
 
-  if (options.includeParticipantScore && responseScoreCount > 0) {
+  if (responseScoreCount > 0) {
     bucket.submittedScoreCount += 1;
     bucket.submittedScoreTotal += responseScore;
   }
 }
 
-function teacherScorePerParticipant(
-  aggregate: ReturnType<typeof finalizeBuckets>[number],
-) {
+function participantAverageScore(aggregate: ReportBucket) {
   return aggregate.submittedScoreCount === 0
     ? 0
     : roundMetric(aggregate.submittedScoreTotal / aggregate.submittedScoreCount);
+}
+
+function responseEffectiveScore(response: ReportResponse) {
+  const scores = response.answers.flatMap((answer) =>
+    answer.score === null
+      ? []
+      : [scoreAnswerValue(answer.score, answer.question.maxScore)],
+  );
+
+  return scores.length === 0
+    ? null
+    : scores.reduce((total, score) => total + score, 0);
 }
 
 function finalizeBuckets(buckets: Map<string, ReportBucket>) {
@@ -206,7 +213,7 @@ function finalizeBuckets(buckets: Map<string, ReportBucket>) {
       average:
         bucket.scoreCount === 0
           ? 0
-          : roundMetric(bucket.scoreTotal / bucket.scoreCount),
+          : participantAverageScore(bucket),
       responseRate: assignmentResponseRate(
         Array.from({ length: bucket.assigned }, (_, index) => ({
           status: index < bucket.submitted ? "SUBMITTED" : "PENDING",
@@ -328,7 +335,7 @@ function teacherBucketRows(
       formatPercent(aggregate.responseRate),
       sampleHidden
         ? "小样本隐藏"
-        : `${teacherScorePerParticipant(aggregate)} / ${formatInteger(aggregate.submittedScoreCount)} 人`,
+        : `${participantAverageScore(aggregate)} / ${formatInteger(aggregate.submittedScoreCount)} 人`,
       <StatusBadge
         key="status"
         tone={
@@ -415,7 +422,6 @@ function buildAggregates(
       assignment.teachingClass.teacher.id,
       assignment.teachingClass.teacher.name,
       response,
-      { includeParticipantScore: true },
     );
     addResponseScoresToBucket(
       courses,
@@ -460,8 +466,10 @@ function buildQuestionSummaries(responses: ReportResponse[]) {
         });
 
       if (answer.score !== null) {
+        const score = scoreAnswerValue(answer.score, answer.question.maxScore);
+
         summary.count += 1;
-        summary.scoreTotal += answer.score;
+        summary.scoreTotal += score;
         summary.average = roundMetric(summary.scoreTotal / summary.count);
       }
 
@@ -520,19 +528,6 @@ function buildWarnings(aggregates: ReturnType<typeof buildAggregates>) {
           label: aggregate.label,
           level: "warning",
           type: "小样本风险",
-        });
-      }
-
-      if (
-        aggregate.submitted >= SMALL_SAMPLE_THRESHOLD &&
-        aggregate.average > 0 &&
-        aggregate.average < LOW_AVERAGE_SCORE
-      ) {
-        warnings.push({
-          detail: `平均分 ${aggregate.average}，低于 ${LOW_AVERAGE_SCORE}`,
-          label: aggregate.label,
-          level: "danger",
-          type: "低分预警",
         });
       }
 
@@ -727,15 +722,22 @@ export default async function AdminReportsPage({
   const warnings = buildWarnings(aggregates);
   const scoredAnswers = responses.flatMap((response) =>
     response.answers.flatMap((answer) =>
-      answer.score === null ? [] : [answer.score],
+      answer.score === null
+        ? []
+        : [scoreAnswerValue(answer.score, answer.question.maxScore)],
     ),
   );
+  const responseScores = responses.flatMap((response) => {
+    const score = responseEffectiveScore(response);
+
+    return score === null ? [] : [score];
+  });
   const overallAverage =
-    responses.length < SMALL_SAMPLE_THRESHOLD || scoredAnswers.length === 0
+    responses.length < SMALL_SAMPLE_THRESHOLD || responseScores.length === 0
       ? 0
       : roundMetric(
-          scoredAnswers.reduce((total, score) => total + score, 0) /
-            scoredAnswers.length,
+          responseScores.reduce((total, score) => total + score, 0) /
+            responseScores.length,
         );
   const submittedAssignments = countSubmitted(assignments);
   const questionSummaries = buildQuestionSummaries(responses);
@@ -846,21 +848,21 @@ export default async function AdminReportsPage({
         <StatCard label="整体回收率" value={formatPercent(assignmentResponseRate(assignments))} hint="已提交 / 派发" />
         <StatCard label="计分答案" value={formatInteger(scoredAnswers.length)} hint="剔除文本题与空分值" />
         <StatCard
-          label="整体平均分"
+          label="整体生均得分"
           value={responses.length < SMALL_SAMPLE_THRESHOLD ? "小样本隐藏" : overallAverage}
-          hint={responses.length < SMALL_SAMPLE_THRESHOLD ? `少于 ${SMALL_SAMPLE_THRESHOLD} 份提交不显示` : "按计分答案计算"}
+          hint={responses.length < SMALL_SAMPLE_THRESHOLD ? `少于 ${SMALL_SAMPLE_THRESHOLD} 份提交不显示` : "按答卷有效得分计算"}
         />
-        <StatCard label="预警项" value={formatInteger(warnings.length)} hint="低回收、小样本、低分" />
+        <StatCard label="预警项" value={formatInteger(warnings.length)} hint="低回收、小样本" />
       </section>
 
       <section className="grid gap-6 xl:grid-cols-2">
         <div className="space-y-3">
           <h2 className="text-base font-semibold text-slate-950">学校报表</h2>
-          <DataTable headers={["学校", "提交/派发", "回收率", "平均分", "状态"]} emptyText="暂无学校汇总。" rows={bucketRows(aggregates.schools)} />
+          <DataTable headers={["学校", "提交/派发", "回收率", "生均得分", "状态"]} emptyText="暂无学校汇总。" rows={bucketRows(aggregates.schools)} />
         </div>
         <div className="space-y-3">
           <h2 className="text-base font-semibold text-slate-950">院系报表</h2>
-          <DataTable headers={["院系", "提交/派发", "回收率", "平均分", "状态"]} emptyText="暂无院系汇总。" rows={bucketRows(aggregates.departments)} />
+          <DataTable headers={["院系", "提交/派发", "回收率", "生均得分", "状态"]} emptyText="暂无院系汇总。" rows={bucketRows(aggregates.departments)} />
         </div>
       </section>
 
@@ -871,7 +873,7 @@ export default async function AdminReportsPage({
         </div>
         <div className="space-y-3">
           <h2 className="text-base font-semibold text-slate-950">课程报表</h2>
-          <DataTable headers={["课程", "提交/派发", "回收率", "平均分", "状态"]} emptyText="暂无课程汇总。" rows={bucketRows(aggregates.courses)} />
+          <DataTable headers={["课程", "提交/派发", "回收率", "生均得分", "状态"]} emptyText="暂无课程汇总。" rows={bucketRows(aggregates.courses)} />
         </div>
       </section>
 
@@ -885,7 +887,7 @@ export default async function AdminReportsPage({
             导出教学班 Excel
           </Link>
         </div>
-        <DataTable headers={["教学班", "提交/派发", "回收率", "平均分", "状态"]} emptyText="暂无教学班汇总。" rows={classBucketRows(aggregates.classes, query)} />
+        <DataTable headers={["教学班", "提交/派发", "回收率", "生均得分", "状态"]} emptyText="暂无教学班汇总。" rows={classBucketRows(aggregates.classes, query)} />
         <p className="text-xs text-slate-500">
           点击教学班名称可查看该班所有学生的评教明细。
         </p>
