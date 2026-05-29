@@ -20,6 +20,7 @@ import {
   formatInteger,
   formatPercent,
   isDatabaseConfigured,
+  roundMetric,
 } from "@/lib/demo-data";
 
 const LOW_RESPONSE_RATE = 60;
@@ -218,11 +219,15 @@ function buildScoreAxis(maxScore: number) {
   };
 }
 
+function scorePerParticipant(point: TeacherEvaluationPoint) {
+  return point.submitted === 0 ? 0 : roundMetric(point.scoreTotal / point.submitted);
+}
+
 function TrendChart({ points }: { points: TeacherEvaluationPoint[] }) {
   const visiblePoints = points.filter(
     (point) => point.submitted >= SMALL_SAMPLE_THRESHOLD && point.scoreCount > 0,
   );
-  const scores = visiblePoints.map((point) => point.scoreTotal);
+  const scores = visiblePoints.map(scorePerParticipant);
   const axis = buildScoreAxis(Math.max(...scores, 0));
   const chartConfig = { ...CHART_CONFIG, maxScore: axis.maxScore };
   const coordinates = buildScoreTrendCoordinates(scores, chartConfig);
@@ -231,7 +236,7 @@ function TrendChart({ points }: { points: TeacherEvaluationPoint[] }) {
   if (visiblePoints.length === 0) {
     return (
       <section className="rounded-md border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-base font-semibold text-slate-950">评教得分趋势</h2>
+        <h2 className="text-base font-semibold text-slate-950">评教生均得分趋势</h2>
         <p className="mt-4 text-sm text-slate-500">
           当前筛选范围内暂无满足小样本阈值的评教记录，暂不绘制趋势图。
         </p>
@@ -243,9 +248,9 @@ function TrendChart({ points }: { points: TeacherEvaluationPoint[] }) {
     <section className="rounded-md border border-slate-200 bg-white p-6 shadow-sm">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-base font-semibold text-slate-950">评教得分趋势</h2>
+          <h2 className="text-base font-semibold text-slate-950">评教生均得分趋势</h2>
           <p className="mt-1 text-sm text-slate-500">
-            仅绘制提交数不少于 {SMALL_SAMPLE_THRESHOLD} 的记录，按每次评教所有计分题直接累加展示。
+            仅绘制提交数不少于 {SMALL_SAMPLE_THRESHOLD} 的记录，按计分题总分除以参评学生数展示。
           </p>
         </div>
         <div className="text-sm font-medium text-slate-600">
@@ -309,7 +314,7 @@ function TrendChart({ points }: { points: TeacherEvaluationPoint[] }) {
         {visiblePoints.slice(-6).map((point) => (
           <div key={point.key} className="truncate">
             <span className="font-medium text-slate-700">
-              {formatInteger(point.scoreTotal)}
+              {scorePerParticipant(point)}
             </span>
             {" · "}
             {point.label}
@@ -356,15 +361,21 @@ export default async function TeacherReportDetailPage({
       answer.score === null ? [] : [answer.score],
     ) ?? [],
   );
-  const visibleTotals = points.flatMap((point) =>
-    point.submitted >= SMALL_SAMPLE_THRESHOLD && point.scoreCount > 0
-      ? [point.scoreTotal]
-      : [],
+  const visiblePoints = points.filter(
+    (point) => point.submitted >= SMALL_SAMPLE_THRESHOLD && point.scoreCount > 0,
   );
-  const totalScore =
-    visibleTotals.length === 0
+  const visibleScoreTotal = visiblePoints.reduce(
+    (total, point) => total + point.scoreTotal,
+    0,
+  );
+  const visibleParticipantCount = visiblePoints.reduce(
+    (total, point) => total + point.submitted,
+    0,
+  );
+  const participantAdjustedScore =
+    visibleParticipantCount === 0
       ? "小样本隐藏"
-      : formatInteger(visibleTotals.reduce((total, score) => total + score, 0));
+      : roundMetric(visibleScoreTotal / visibleParticipantCount);
   const returnParams = buildReportSearchParams(query);
   const returnHref = returnParams.toString()
     ? `/admin/reports?${returnParams.toString()}`
@@ -393,7 +404,7 @@ export default async function TeacherReportDetailPage({
         <StatCard label="评教记录" value={formatInteger(points.length)} hint="按任务和教学班聚合" />
         <StatCard label="派发总数" value={formatInteger(data.assignments.length)} hint="当前筛选范围" />
         <StatCard label="整体回收率" value={formatPercent(assignmentResponseRate(data.assignments))} hint={`${formatInteger(submittedAssignments)} / ${formatInteger(data.assignments.length)} 已提交`} />
-        <StatCard label="累计得分" value={totalScore} hint="可分析评教的计分题总和" />
+        <StatCard label="生均得分" value={participantAdjustedScore} hint={`累计得分 / ${formatInteger(visibleParticipantCount)} 名参评学生`} />
         <StatCard label="计分答案" value={formatInteger(scoredAnswers.length)} hint="剔除文本题与空分值" />
       </section>
 
@@ -402,7 +413,7 @@ export default async function TeacherReportDetailPage({
       <section className="space-y-3">
         <h2 className="text-base font-semibold text-slate-950">每次评教明细</h2>
         <DataTable
-          headers={["学期", "评价任务", "课程", "教学班", "提交/派发", "回收率", "得分（总分）", "状态"]}
+          headers={["学期", "评价任务", "课程", "教学班", "提交/派发", "回收率", "生均得分", "状态"]}
           emptyText="暂无教师评教记录。"
           rows={points.map((point) => {
             const sampleHidden = point.submitted < SMALL_SAMPLE_THRESHOLD;
@@ -420,7 +431,7 @@ export default async function TeacherReportDetailPage({
               formatPercent(responseRate),
               sampleHidden || point.scoreCount === 0
                 ? "小样本隐藏"
-                : formatInteger(point.scoreTotal),
+                : scorePerParticipant(point),
               <StatusBadge
                 key="status"
                 tone={
@@ -439,7 +450,7 @@ export default async function TeacherReportDetailPage({
           })}
         />
         <p className="text-xs text-slate-500">
-          计分答案数：{formatInteger(scoredAnswers.length)}。教师个人得分按每项计分题原始分值累加，小样本记录不参与趋势图和累计得分。
+          计分答案数：{formatInteger(scoredAnswers.length)}。教师个人得分按计分题总分除以参评学生数计算，小样本记录不参与趋势图和生均得分。
         </p>
       </section>
     </div>

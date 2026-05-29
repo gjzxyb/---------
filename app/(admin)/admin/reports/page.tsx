@@ -166,6 +166,14 @@ function addResponseScoresToBucket(
   });
 }
 
+function teacherScorePerParticipant(
+  aggregate: ReturnType<typeof finalizeBuckets>[number],
+) {
+  return aggregate.submitted === 0
+    ? 0
+    : roundMetric(aggregate.scoreTotal / aggregate.submitted);
+}
+
 function finalizeBuckets(buckets: Map<string, ReportBucket>) {
   return Array.from(buckets.values())
     .map((bucket) => ({
@@ -293,7 +301,9 @@ function teacherBucketRows(
       </Link>,
       `${formatInteger(aggregate.submitted)} / ${formatInteger(aggregate.assigned)}`,
       formatPercent(aggregate.responseRate),
-      sampleHidden ? "小样本隐藏" : formatInteger(aggregate.scoreTotal),
+      sampleHidden
+        ? "小样本隐藏"
+        : `${teacherScorePerParticipant(aggregate)} / ${formatInteger(aggregate.submitted)} 人`,
       <StatusBadge
         key="status"
         tone={
@@ -831,7 +841,7 @@ export default async function AdminReportsPage({
       <section className="grid gap-6 xl:grid-cols-2">
         <div className="space-y-3">
           <h2 className="text-base font-semibold text-slate-950">教师报表</h2>
-          <DataTable headers={["教师", "提交/派发", "回收率", "得分（总分）", "状态"]} emptyText="暂无教师汇总。" rows={teacherBucketRows(aggregates.teachers, query)} />
+          <DataTable headers={["教师", "提交/派发", "回收率", "生均得分", "状态"]} emptyText="暂无教师汇总。" rows={teacherBucketRows(aggregates.teachers, query)} />
         </div>
         <div className="space-y-3">
           <h2 className="text-base font-semibold text-slate-950">课程报表</h2>
