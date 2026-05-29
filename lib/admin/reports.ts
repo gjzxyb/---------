@@ -3,6 +3,7 @@ export type ReportQuery = {
   organizationId?: string;
   taskId?: string;
   teacherId?: string;
+  teacherName?: string;
   term?: string;
 };
 
@@ -28,6 +29,7 @@ export function parseReportQuery(
     organizationId: optionalQueryText(searchParams.organizationId),
     taskId: optionalQueryText(searchParams.taskId),
     teacherId: optionalQueryText(searchParams.teacherId),
+    teacherName: optionalQueryText(searchParams.teacherName),
     term: optionalQueryText(searchParams.term),
   };
 }

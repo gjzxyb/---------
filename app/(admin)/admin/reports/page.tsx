@@ -555,6 +555,20 @@ function buildAssignmentWhere(query: ReturnType<typeof parseReportQuery>) {
     filters.push({ teachingClass: { is: { teacherId: query.teacherId } } });
   }
 
+  if (query.teacherName) {
+    filters.push({
+      teachingClass: {
+        is: {
+          teacher: {
+            is: {
+              name: { contains: query.teacherName },
+            },
+          },
+        },
+      },
+    });
+  }
+
   if (query.organizationId) {
     filters.push({
       teachingClass: { is: { organizationId: query.organizationId } },
@@ -744,6 +758,8 @@ export default async function AdminReportsPage({
   const textComments = buildTextComments(responses);
   const exportHref = `/admin/reports/export?${buildReportSearchParams(query).toString()}`;
   const classExportHref = `/admin/reports/classes/export?${buildReportSearchParams(query).toString()}`;
+  const selectedTeacher = teachers.find((teacher) => teacher.id === query.teacherId);
+  const teacherKeyword = query.teacherName ?? selectedTeacher?.name ?? "";
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -774,10 +790,10 @@ export default async function AdminReportsPage({
       <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
         <form className="p-5">
           <h2 className="text-base font-semibold text-slate-950">自定义报表筛选</h2>
-          <div className="mt-4 grid gap-4 md:grid-cols-3 xl:grid-cols-6">
-            <label className="grid gap-1 text-sm font-medium text-slate-700">
+          <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(9rem,0.7fr)_minmax(18rem,1.35fr)_minmax(14rem,1fr)_minmax(13rem,1fr)_minmax(14rem,1fr)_auto]">
+            <label className="grid min-w-0 gap-1 text-sm font-medium text-slate-700">
               学期
-              <select name="term" defaultValue={query.term ?? ""} className="rounded-md border border-slate-300 px-3 py-2 text-sm">
+              <select name="term" defaultValue={query.term ?? ""} className="w-full min-w-0 truncate rounded-md border border-slate-300 px-3 py-2 text-sm">
                 <option value="">全部学期</option>
                 {terms.map((term) => (
                   <option key={term} value={term}>
@@ -786,9 +802,9 @@ export default async function AdminReportsPage({
                 ))}
               </select>
             </label>
-            <label className="grid gap-1 text-sm font-medium text-slate-700">
+            <label className="grid min-w-0 gap-1 text-sm font-medium text-slate-700">
               评价任务
-              <select name="taskId" defaultValue={query.taskId ?? ""} className="rounded-md border border-slate-300 px-3 py-2 text-sm">
+              <select name="taskId" defaultValue={query.taskId ?? ""} className="w-full min-w-0 truncate rounded-md border border-slate-300 px-3 py-2 text-sm">
                 <option value="">全部任务</option>
                 {tasks.map((task) => (
                   <option key={task.id} value={task.id}>
@@ -797,9 +813,9 @@ export default async function AdminReportsPage({
                 ))}
               </select>
             </label>
-            <label className="grid gap-1 text-sm font-medium text-slate-700">
+            <label className="grid min-w-0 gap-1 text-sm font-medium text-slate-700">
               组织
-              <select name="organizationId" defaultValue={query.organizationId ?? ""} className="rounded-md border border-slate-300 px-3 py-2 text-sm">
+              <select name="organizationId" defaultValue={query.organizationId ?? ""} className="w-full min-w-0 truncate rounded-md border border-slate-300 px-3 py-2 text-sm">
                 <option value="">全部组织</option>
                 {organizations.map((organization) => (
                   <option key={organization.id} value={organization.id}>
@@ -808,20 +824,24 @@ export default async function AdminReportsPage({
                 ))}
               </select>
             </label>
-            <label className="grid gap-1 text-sm font-medium text-slate-700">
+            <label className="grid min-w-0 gap-1 text-sm font-medium text-slate-700">
               教师
-              <select name="teacherId" defaultValue={query.teacherId ?? ""} className="rounded-md border border-slate-300 px-3 py-2 text-sm">
-                <option value="">全部教师</option>
+              <input
+                className="w-full min-w-0 rounded-md border border-slate-300 px-3 py-2 text-sm"
+                defaultValue={teacherKeyword}
+                list="report-teacher-options"
+                name="teacherName"
+                placeholder="输入教师姓名"
+              />
+              <datalist id="report-teacher-options">
                 {teachers.map((teacher) => (
-                  <option key={teacher.id} value={teacher.id}>
-                    {teacher.name}
-                  </option>
+                  <option key={teacher.id} value={teacher.name} />
                 ))}
-              </select>
+              </datalist>
             </label>
-            <label className="grid gap-1 text-sm font-medium text-slate-700">
+            <label className="grid min-w-0 gap-1 text-sm font-medium text-slate-700">
               课程
-              <select name="courseId" defaultValue={query.courseId ?? ""} className="rounded-md border border-slate-300 px-3 py-2 text-sm">
+              <select name="courseId" defaultValue={query.courseId ?? ""} className="w-full min-w-0 truncate rounded-md border border-slate-300 px-3 py-2 text-sm">
                 <option value="">全部课程</option>
                 {courses.map((course) => (
                   <option key={course.id} value={course.id}>
@@ -830,11 +850,11 @@ export default async function AdminReportsPage({
                 ))}
               </select>
             </label>
-            <div className="flex items-end gap-2">
-              <button className="rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white">
+            <div className="flex items-end gap-2 xl:justify-end">
+              <button className="h-10 rounded-md bg-slate-950 px-4 text-sm font-medium text-white">
                 查询
               </button>
-              <Link href="/admin/reports" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700">
+              <Link href="/admin/reports" className="inline-flex h-10 items-center rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-700">
                 重置
               </Link>
             </div>

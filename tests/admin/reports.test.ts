@@ -17,12 +17,14 @@ describe("admin reports helpers", () => {
         term: " 2025-2026-2 ",
         taskId: "",
         teacherId: "teacher-1",
+        teacherName: " 夏新 ",
       }),
     ).toEqual({
       courseId: undefined,
       organizationId: undefined,
       taskId: undefined,
       teacherId: "teacher-1",
+      teacherName: "夏新",
       term: "2025-2026-2",
     });
   });
