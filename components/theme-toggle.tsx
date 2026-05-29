@@ -19,7 +19,7 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
       >
         <span className="h-1.5 w-1.5 rounded-full" />
       </span>
-      {compact ? null : <span>{isDark ? "浅色学院风" : "深色科技风"}</span>}
+      <span>{compact ? (isDark ? "浅色" : "深色") : isDark ? "浅色学院风" : "深色科技风"}</span>
     </button>
   );
 }

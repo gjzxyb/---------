@@ -30,8 +30,8 @@ export function AppShell({ children, navigation, session }: AppShellProps) {
 
   return (
     <div className="app-shell flex min-h-screen bg-slate-100 text-slate-950">
-      <aside className="app-sidebar hidden w-72 flex-col bg-slate-950 px-4 py-5 text-slate-100 lg:flex">
-        <div className="px-3">
+      <aside className="app-sidebar hidden w-72 flex-col bg-slate-950 px-5 py-6 text-slate-100 lg:flex">
+        <div className="brand-panel px-3">
           <p className="text-xs font-medium text-sky-300">智慧评教</p>
           <h1 className="mt-2 text-lg font-semibold tracking-normal text-white">
             评教与反馈平台
@@ -43,7 +43,7 @@ export function AppShell({ children, navigation, session }: AppShellProps) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="app-header flex min-h-16 items-center justify-between border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
+        <header className="app-header flex min-h-20 items-center justify-between border-b border-slate-200 bg-white px-4 py-4 sm:px-7">
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-slate-500">
               {user.email}
@@ -52,7 +52,7 @@ export function AppShell({ children, navigation, session }: AppShellProps) {
               {user.name ?? "未命名用户"}
             </h2>
           </div>
-          <div className="flex shrink-0 items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <ThemeToggle compact />
             <StatusBadge tone="info">{roleLabels[user.role]}</StatusBadge>
             <button

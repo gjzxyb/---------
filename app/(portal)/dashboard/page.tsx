@@ -180,8 +180,8 @@ export default async function DashboardPage() {
   const content = await loadDashboardContent(session.user.role, session.user.id);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div className="dashboard-page mx-auto max-w-6xl space-y-6">
+      <div className="dashboard-hero flex flex-col gap-4 rounded-md border border-slate-200 bg-white p-6 shadow-sm sm:flex-row sm:items-start sm:justify-between">
         <div>
           <StatusBadge tone="info">工作台</StatusBadge>
           <h1 className="mt-3 text-2xl font-semibold tracking-normal text-slate-950">
@@ -203,7 +203,7 @@ export default async function DashboardPage() {
         {content.metrics.map((metric) => (
           <article
             key={metric.label}
-            className="rounded-md border border-slate-200 bg-white p-5 shadow-sm"
+            className="metric-card rounded-md border border-slate-200 bg-white p-5 shadow-sm"
           >
             <p className="text-sm font-medium text-slate-500">{metric.label}</p>
             <p className="mt-3 text-3xl font-semibold text-slate-950">

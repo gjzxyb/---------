@@ -17,7 +17,8 @@
   --theme-danger: #fda4af;
   --theme-warning: #fcd34d;
   --theme-success: #6ee7b7;
-  --theme-shadow: 0 20px 60px rgba(2, 8, 23, 0.36);
+  --theme-shadow: 0 18px 42px rgba(2, 8, 23, 0.28);
+  --theme-card-shadow: 0 14px 38px rgba(2, 8, 23, 0.22);
   --theme-grid: linear-gradient(rgba(125, 211, 252, 0.06) 1px, transparent 1px),
     linear-gradient(90deg, rgba(125, 211, 252, 0.06) 1px, transparent 1px);
 }
@@ -40,6 +41,7 @@
   --theme-warning: #b45309;
   --theme-success: #047857;
   --theme-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  --theme-card-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
   --theme-grid: linear-gradient(rgba(37, 99, 235, 0.04) 1px, transparent 1px),
     linear-gradient(90deg, rgba(37, 99, 235, 0.04) 1px, transparent 1px);
 }
@@ -72,17 +74,20 @@ body {
 
 .app-sidebar,
 .app-mobile-nav {
-  background: var(--theme-surface-strong) !important;
+  background:
+    linear-gradient(180deg, rgba(16, 33, 55, 0.98), rgba(9, 18, 32, 0.98)),
+    var(--theme-surface-strong) !important;
   border-color: var(--theme-border) !important;
   color: var(--theme-text) !important;
   box-shadow: var(--theme-shadow);
 }
 
 .app-header {
-  background: color-mix(in srgb, var(--theme-surface-strong) 92%, transparent) !important;
+  background: color-mix(in srgb, var(--theme-surface-strong) 94%, transparent) !important;
   border-color: var(--theme-border) !important;
   color: var(--theme-text) !important;
   backdrop-filter: blur(18px);
+  box-shadow: 0 1px 0 var(--theme-border);
 }
 
 .theme-card,
@@ -90,7 +95,7 @@ body {
   background: var(--theme-surface) !important;
   border-color: var(--theme-border) !important;
   color: var(--theme-text) !important;
-  box-shadow: var(--theme-shadow);
+  box-shadow: var(--theme-card-shadow);
 }
 
 [data-theme] .bg-slate-50,
@@ -136,12 +141,24 @@ body {
   color: var(--theme-primary-strong) !important;
 }
 
-[data-theme] .bg-slate-950,
-[data-theme] .bg-slate-900,
 [data-theme] .bg-sky-700,
 [data-theme] .bg-sky-600 {
   background: var(--theme-primary) !important;
   color: var(--theme-primary-contrast) !important;
+}
+
+[data-theme] .bg-slate-950,
+[data-theme] .bg-slate-900 {
+  background: color-mix(in srgb, var(--theme-heading) 12%, var(--theme-surface-strong)) !important;
+  color: var(--theme-heading) !important;
+}
+
+[data-theme] .app-sidebar.bg-slate-950,
+[data-theme] .app-mobile-nav.bg-slate-950 {
+  background:
+    linear-gradient(180deg, rgba(16, 33, 55, 0.98), rgba(9, 18, 32, 0.98)),
+    var(--theme-surface-strong) !important;
+  color: #e5edf7 !important;
 }
 
 [data-theme] input,
@@ -171,7 +188,7 @@ body {
 }
 
 .theme-toggle {
-  background: color-mix(in srgb, var(--theme-surface-muted) 76%, transparent);
+  background: color-mix(in srgb, var(--theme-surface-muted) 82%, transparent);
   border-color: var(--theme-border-strong);
   color: var(--theme-text);
 }
@@ -187,8 +204,62 @@ body {
 
 [data-theme="academy"] .app-sidebar,
 [data-theme="academy"] .app-mobile-nav {
-  background: linear-gradient(180deg, #17345f, #102542) !important;
+  background: linear-gradient(180deg, #14345e, #0d2443) !important;
   color: #eef6ff !important;
+}
+
+.brand-panel {
+  border-bottom: 1px solid color-mix(in srgb, var(--theme-border) 72%, transparent);
+  padding-bottom: 1.25rem;
+}
+
+.nav-group-title {
+  color: color-mix(in srgb, #cbd5e1 56%, transparent) !important;
+}
+
+.nav-link {
+  color: color-mix(in srgb, #e2e8f0 82%, transparent) !important;
+}
+
+.nav-link:hover {
+  background: rgba(56, 189, 248, 0.12) !important;
+  color: #ffffff !important;
+}
+
+.nav-link-active {
+  background: linear-gradient(90deg, rgba(56, 189, 248, 0.22), rgba(56, 189, 248, 0.06)) !important;
+  color: #ffffff !important;
+  box-shadow: inset 3px 0 0 var(--theme-primary);
+}
+
+[data-theme="academy"] .nav-link-active {
+  background: rgba(255, 255, 255, 0.12) !important;
+  box-shadow: inset 3px 0 0 #93c5fd;
+}
+
+.dashboard-hero {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--theme-surface) 92%, transparent), color-mix(in srgb, var(--theme-primary) 8%, var(--theme-surface))) !important;
+}
+
+.metric-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.metric-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--theme-primary), transparent);
+  opacity: 0.9;
+}
+
+[data-theme="academy"] body {
+  background:
+    radial-gradient(circle at 12% 8%, rgba(37, 99, 235, 0.08), transparent 30rem),
+    linear-gradient(180deg, #f7f9fc, #eef5f8) !important;
 }
 
 [data-theme="academy"] .app-sidebar .text-slate-200,
