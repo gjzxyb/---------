@@ -23,27 +23,14 @@ type ResultDetail = {
   name: string;
   term: string;
   course: { name: string; code: string };
-  assignments: {
-    task: {
-      name: string;
-      term: string;
-    };
-    response: {
-      status: string;
-      submittedAt: Date | null;
-      answers: {
-        score: number | null;
-        text: string | null;
-        createdAt: Date;
-        question: {
-          id: string;
-          title: string;
-          type: string;
-          sortOrder: number;
-        };
-      }[];
-    } | null;
+  anonymousSuggestions: {
+    anonymousNo: string;
+    question: string;
+    task: string;
+    text: string;
   }[];
+  averageScore: number;
+  distribution: { count: number; score: number }[];
   improvementPlans: {
     id: string;
     title: string;
@@ -53,6 +40,8 @@ type ResultDetail = {
     evidence: string | null;
     updatedAt: Date;
   }[];
+  questionSummaries: { average: number; count: number; title: string }[];
+  submittedResponseCount: number;
 };
 
 async function loadResultDetail(
@@ -78,31 +67,111 @@ async function loadFreshResultDetail(
   }
 
   const { prisma } = await import("@/lib/db");
-  return prisma.teachingClass.findFirst({
+  const teachingClass = await prisma.teachingClass.findFirst({
     where: {
       id: teachingClassId,
       teacherId,
     },
-    include: {
-      course: true,
-      assignments: {
-        include: {
-          task: { select: { name: true, term: true } },
-          response: {
-            include: {
-              answers: {
-                include: { question: true },
-                orderBy: { question: { sortOrder: "asc" } },
+    select: {
+      id: true,
+      name: true,
+      term: true,
+      course: { select: { code: true, name: true } },
+    },
+  });
+
+  if (!teachingClass) {
+    return null;
+  }
+
+  const [responses, improvementPlans] = await Promise.all([
+    prisma.evaluationResponse.findMany({
+      where: {
+        status: "SUBMITTED",
+        assignment: { teachingClassId },
+      },
+      select: {
+        assignment: {
+          select: {
+            task: { select: { name: true, term: true } },
+          },
+        },
+        answers: {
+          select: {
+            score: true,
+            text: true,
+            question: {
+              select: {
+                id: true,
+                sortOrder: true,
+                title: true,
               },
             },
           },
+          orderBy: { question: { sortOrder: "asc" } },
         },
       },
-      improvementPlans: {
-        orderBy: [{ updatedAt: "desc" }],
-      },
-    },
-  });
+      orderBy: [{ submittedAt: "desc" }, { updatedAt: "desc" }],
+    }),
+    prisma.improvementPlan.findMany({
+      where: { teachingClassId },
+      orderBy: [{ updatedAt: "desc" }],
+    }),
+  ]);
+  const scoreAnswers = responses.flatMap((response) =>
+    response.answers.flatMap((answer) =>
+      answer.score === null
+        ? []
+        : [{ questionId: answer.question.id, score: answer.score }],
+    ),
+  );
+  const questionTitles = new Map(
+    responses.flatMap((response) =>
+      response.answers.map((answer) => [
+        answer.question.id,
+        answer.question.title,
+      ]),
+    ),
+  );
+  const anonymousSuggestions = responses.flatMap((response, responseIndex) =>
+    response.answers.flatMap((answer) => {
+      const text = answer.text?.trim();
+
+      if (!text) {
+        return [];
+      }
+
+      return [
+        {
+          anonymousNo: `匿名反馈 ${responseIndex + 1}`,
+          question: answer.question.title,
+          task: `${response.assignment.task.term} · ${response.assignment.task.name}`,
+          text: maskSensitiveText(text),
+        },
+      ];
+    }),
+  );
+  const distribution = [1, 2, 3, 4, 5].map((score) => ({
+    score,
+    count: scoreAnswers.filter((answer) => answer.score === score).length,
+  }));
+  const questionSummaries = summarizeQuestionScores(scoreAnswers).map(
+    (summary) => ({
+      average: summary.average,
+      count: summary.count,
+      title: questionTitles.get(summary.questionId) ?? summary.questionId,
+    }),
+  );
+
+  return {
+    ...teachingClass,
+    anonymousSuggestions,
+    averageScore: averageScore(scoreAnswers.map((answer) => answer.score)),
+    distribution,
+    improvementPlans,
+    questionSummaries,
+    submittedResponseCount: responses.length,
+  };
 }
 
 function formatDate(date: Date | null) {
@@ -115,17 +184,6 @@ function formatDate(date: Date | null) {
     month: "2-digit",
     day: "2-digit",
   }).format(date);
-}
-
-function submittedResponses(teachingClass: ResultDetail) {
-  return teachingClass.assignments
-    .map((assignment) => assignment.response)
-    .filter(
-      (
-        response,
-      ): response is NonNullable<ResultDetail["assignments"][number]["response"]> =>
-        response?.status === "SUBMITTED",
-    );
 }
 
 export default async function TeacherResultDetailPage({
@@ -160,51 +218,8 @@ export default async function TeacherResultDetailPage({
     notFound();
   }
 
-  const responses = submittedResponses(teachingClass);
-  const hasEnoughSamples = responses.length >= MIN_SAMPLE_SIZE;
-  const scoreAnswers = responses.flatMap((response) =>
-    response.answers.flatMap((answer) =>
-      answer.score === null ? [] : [{ questionId: answer.question.id, score: answer.score }],
-    ),
-  );
-  const questionTitles = new Map(
-    responses.flatMap((response) =>
-      response.answers.map((answer) => [
-        answer.question.id,
-        answer.question.title,
-      ]),
-    ),
-  );
-  const anonymousSuggestions = teachingClass.assignments.flatMap(
-    (assignment, assignmentIndex) => {
-      const response = assignment.response;
-
-      if (response?.status !== "SUBMITTED") {
-        return [];
-      }
-
-      return response.answers.flatMap((answer) => {
-        const text = answer.text?.trim();
-
-        if (!text) {
-          return [];
-        }
-
-        return [
-          {
-            anonymousNo: `匿名反馈 ${assignmentIndex + 1}`,
-            question: answer.question.title,
-            task: `${assignment.task.term} · ${assignment.task.name}`,
-            text: maskSensitiveText(text),
-          },
-        ];
-      });
-    },
-  );
-  const distribution = [1, 2, 3, 4, 5].map((score) => ({
-    score,
-    count: scoreAnswers.filter((answer) => answer.score === score).length,
-  }));
+  const hasEnoughSamples =
+    teachingClass.submittedResponseCount >= MIN_SAMPLE_SIZE;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -245,10 +260,14 @@ export default async function TeacherResultDetailPage({
       ) : null}
 
       <section className="grid gap-4 md:grid-cols-3" aria-label="评价指标">
-        <StatCard label="已提交样本" value={responses.length} hint="仅统计提交状态" />
+        <StatCard
+          label="已提交样本"
+          value={teachingClass.submittedResponseCount}
+          hint="仅统计提交状态"
+        />
         <StatCard
           label="平均分"
-          value={hasEnoughSamples ? averageScore(scoreAnswers.map((a) => a.score)) : "-"}
+          value={hasEnoughSamples ? teachingClass.averageScore : "-"}
           hint={hasEnoughSamples ? "全部量表题平均" : "小样本隐藏"}
         />
         <StatCard
@@ -267,8 +286,8 @@ export default async function TeacherResultDetailPage({
             <DataTable
               headers={["题目", "样本数", "平均分"]}
               emptyText="暂无量表题得分。"
-              rows={summarizeQuestionScores(scoreAnswers).map((summary) => [
-                questionTitles.get(summary.questionId) ?? summary.questionId,
+              rows={teachingClass.questionSummaries.map((summary) => [
+                summary.title,
                 summary.count,
                 summary.average,
               ])}
@@ -279,7 +298,7 @@ export default async function TeacherResultDetailPage({
             <h2 className="text-base font-semibold text-slate-950">分数分布</h2>
             <DataTable
               headers={["分数", "次数"]}
-              rows={distribution.map((bucket) => [
+              rows={teachingClass.distribution.map((bucket) => [
                 `${bucket.score} 分`,
                 bucket.count,
               ])}
@@ -296,7 +315,7 @@ export default async function TeacherResultDetailPage({
         <DataTable
           headers={["匿名序号", "评价任务", "题目", "建议内容"]}
           emptyText="暂无建议内容。"
-          rows={anonymousSuggestions.map((suggestion) => [
+          rows={teachingClass.anonymousSuggestions.map((suggestion) => [
             suggestion.anonymousNo,
             suggestion.task,
             suggestion.question,

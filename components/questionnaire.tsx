@@ -81,32 +81,60 @@ export function Questionnaire({
 
               {question.type === "SCALE" ? (
                 <div className="mt-4 grid gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-5">
-                  {getScaleOptions(question.maxScore).map((option) => (
-                    <label
-                      key={option.value}
-                      className="flex min-h-12 items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-medium text-slate-700 sm:min-h-10 sm:justify-center sm:gap-2 sm:py-2"
-                    >
-                      <input
-                        type="radio"
-                        name={`answers.${question.id}.score`}
-                        value={option.value}
-                        defaultChecked={answer?.score === option.value}
-                        required={question.required}
-                        className="h-4 w-4 border-slate-300 text-sky-600 focus:ring-sky-500"
-                      />
-                      <span className="min-w-0 flex-1 sm:flex-none">{option.label}</span>
-                    </label>
-                  ))}
+                  {getScaleOptions(question.maxScore).map((option) => {
+                    const isSelected = answer?.score === option.value;
+
+                    return (
+                      <label
+                        key={option.value}
+                        className={`flex min-h-12 items-center gap-3 rounded-md border px-3 py-3 text-sm font-medium transition sm:min-h-10 sm:justify-center sm:gap-2 sm:py-2 ${
+                          isSelected
+                            ? "border-emerald-400 bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200"
+                            : "border-slate-200 bg-slate-50 text-slate-700"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name={`answers.${question.id}.score`}
+                          value={option.value}
+                          defaultChecked={isSelected}
+                          required={question.required}
+                          className="h-4 w-4 border-slate-300 text-sky-600 focus:ring-sky-500"
+                        />
+                        <span className="min-w-0 flex-1 sm:flex-none">
+                          {option.label}
+                        </span>
+                        {disabled && isSelected ? (
+                          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                            已选
+                          </span>
+                        ) : null}
+                      </label>
+                    );
+                  })}
+                  {disabled && answer?.score == null ? (
+                    <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-sm text-slate-500 lg:col-span-5">
+                      未作答
+                    </div>
+                  ) : null}
                 </div>
               ) : (
-                <textarea
-                  name={`answers.${question.id}.text`}
-                  defaultValue={answer?.text ?? ""}
-                  required={question.required}
-                  rows={5}
-                  className="mt-4 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
-                  placeholder="请输入你的评价意见"
-                />
+                <>
+                  {disabled ? (
+                    <div className="mt-4 min-h-24 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm leading-6 text-slate-800">
+                      {answer?.text?.trim() || "未填写"}
+                    </div>
+                  ) : (
+                    <textarea
+                      name={`answers.${question.id}.text`}
+                      defaultValue={answer?.text ?? ""}
+                      required={question.required}
+                      rows={5}
+                      className="mt-4 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                      placeholder="请输入你的评价意见"
+                    />
+                  )}
+                </>
               )}
             </fieldset>
           );

@@ -5,15 +5,13 @@ import { requireRole } from "@/lib/auth/guards";
 import { appCachePrefixes, cachedJson } from "@/lib/cache/app-cache";
 import {
   ADMIN_ROLES,
-  assignmentResponseRate,
-  countSubmitted,
   emptyWhenDatabaseMissing,
   formatInteger,
   formatPercent,
   isDatabaseConfigured,
+  percentage,
   taskStatusLabel,
   taskStatusTone,
-  termTrendSummary,
 } from "@/lib/demo-data";
 
 const LOW_RESPONSE_RATE = 60;
@@ -23,18 +21,21 @@ type AdminDashboardTask = {
   name: string;
   term: string;
   status: string;
-  assignments: {
-    status: string;
-    submittedAt: Date | null;
-    response: { status: string } | null;
-  }[];
+  responseRate: number;
+  submittedAssignments: number;
+  totalAssignments: number;
 };
 
 type DashboardData = {
-  tasks: AdminDashboardTask[];
-  totalCourses: number;
-  participatingStudents: number;
   isDatabaseConfigured: boolean;
+  lowResponseTaskCount: number;
+  participatingStudents: number;
+  recentTasks: AdminDashboardTask[];
+  submittedAssignments: number;
+  taskCount: number;
+  totalCourses: number;
+  totalAssignments: number;
+  trendSummary: string;
 };
 
 async function loadDashboardData(): Promise<DashboardData> {
@@ -48,68 +49,140 @@ async function loadDashboardData(): Promise<DashboardData> {
 async function loadFreshDashboardData(): Promise<DashboardData> {
   if (!isDatabaseConfigured()) {
     return {
-      tasks: [],
-      totalCourses: 0,
-      participatingStudents: 0,
       isDatabaseConfigured: false,
+      lowResponseTaskCount: 0,
+      participatingStudents: 0,
+      recentTasks: [],
+      submittedAssignments: 0,
+      taskCount: 0,
+      totalAssignments: 0,
+      totalCourses: 0,
+      trendSummary: "暂无学期趋势数据",
     };
   }
 
   const { prisma } = await import("@/lib/db");
-  const [tasks, totalCourses, participatingStudentRows] = await Promise.all([
-    prisma.evaluationTask.findMany({
-      include: {
-        assignments: {
-          select: {
-            status: true,
-            submittedAt: true,
-            response: { select: { status: true } },
-          },
+  const [tasks, totalCourses, totalGroups, submittedGroups, participatingRows] =
+    await Promise.all([
+      prisma.evaluationTask.findMany({
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          term: true,
         },
-      },
-      orderBy: [{ term: "desc" }, { updatedAt: "desc" }],
-    }),
-    prisma.course.count(),
-    prisma.evaluationAssignment.findMany({
-      distinct: ["evaluatorId"],
-      select: { evaluatorId: true },
-    }),
-  ]);
+        orderBy: [{ term: "desc" }, { updatedAt: "desc" }],
+      }),
+      prisma.course.count(),
+      prisma.evaluationAssignment.groupBy({
+        by: ["taskId"],
+        _count: { _all: true },
+      }),
+      prisma.evaluationAssignment.groupBy({
+        by: ["taskId"],
+        _count: { _all: true },
+        where: {
+          OR: [
+            { status: "SUBMITTED" },
+            { submittedAt: { not: null } },
+            { response: { status: "SUBMITTED" } },
+          ],
+        },
+      }),
+      prisma.$queryRaw<Array<{ count: number | bigint }>>`
+        SELECT COUNT(DISTINCT "evaluatorId")::int AS count
+        FROM "EvaluationAssignment"
+      `,
+    ]);
+
+  const totalByTask = new Map(
+    totalGroups.map((group) => [group.taskId, group._count._all]),
+  );
+  const submittedByTask = new Map(
+    submittedGroups.map((group) => [group.taskId, group._count._all]),
+  );
+  const taskSummaries = tasks.map((task) => {
+    const totalAssignments = totalByTask.get(task.id) ?? 0;
+    const submittedAssignments = submittedByTask.get(task.id) ?? 0;
+
+    return {
+      ...task,
+      responseRate: percentage(submittedAssignments, totalAssignments),
+      submittedAssignments,
+      totalAssignments,
+    };
+  });
+  const totalAssignments = taskSummaries.reduce(
+    (total, task) => total + task.totalAssignments,
+    0,
+  );
+  const submittedAssignments = taskSummaries.reduce(
+    (total, task) => total + task.submittedAssignments,
+    0,
+  );
+  const termBuckets = new Map<string, { submitted: number; total: number }>();
+
+  taskSummaries.forEach((task) => {
+    const bucket = termBuckets.get(task.term) ?? { submitted: 0, total: 0 };
+    bucket.submitted += task.submittedAssignments;
+    bucket.total += task.totalAssignments;
+    termBuckets.set(task.term, bucket);
+  });
+
+  const sortedTerms = Array.from(termBuckets.entries()).sort(([first], [second]) =>
+    second.localeCompare(first),
+  );
+  const trendSummary = (() => {
+    if (sortedTerms.length === 0) {
+      return "暂无学期趋势数据";
+    }
+
+    const [currentTerm, previousTerm] = sortedTerms;
+    const currentRate = percentage(currentTerm[1].submitted, currentTerm[1].total);
+
+    if (!previousTerm) {
+      return `${currentTerm[0]} 回收率 ${formatPercent(currentRate)}`;
+    }
+
+    const previousRate = percentage(previousTerm[1].submitted, previousTerm[1].total);
+    const delta = Number((currentRate - previousRate).toFixed(2));
+    const direction = delta >= 0 ? "提升" : "下降";
+
+    return `${currentTerm[0]} 回收率 ${formatPercent(currentRate)}，较 ${previousTerm[0]} ${direction} ${formatPercent(Math.abs(delta))}`;
+  })();
 
   return {
-    tasks,
-    totalCourses,
-    participatingStudents: participatingStudentRows.length,
     isDatabaseConfigured: true,
+    lowResponseTaskCount: taskSummaries.filter(
+      (task) =>
+        task.status === "OPEN" &&
+        task.totalAssignments > 0 &&
+        task.responseRate < LOW_RESPONSE_RATE,
+    ).length,
+    participatingStudents: Number(participatingRows[0]?.count ?? 0),
+    recentTasks: taskSummaries.slice(0, 8),
+    submittedAssignments,
+    taskCount: tasks.length,
+    totalAssignments,
+    totalCourses,
+    trendSummary,
   };
 }
 
 export default async function AdminDashboardPage() {
   await requireRole([...ADMIN_ROLES]);
-  const { tasks, totalCourses, participatingStudents, isDatabaseConfigured } =
-    await loadDashboardData();
-  const totalAssignments = tasks.reduce(
-    (total, task) => total + task.assignments.length,
-    0,
-  );
-  const submittedAssignments = tasks.reduce(
-    (total, task) => total + countSubmitted(task.assignments),
-    0,
-  );
-  const lowResponseTasks = tasks.filter(
-    (task) =>
-      task.status === "OPEN" &&
-      task.assignments.length > 0 &&
-      assignmentResponseRate(task.assignments) < LOW_RESPONSE_RATE,
-  );
-  const trendTerms = Array.from(
-    tasks
-      .reduce<Map<string, AdminDashboardTask["assignments"]>>((terms, task) => {
-        terms.set(task.term, [...(terms.get(task.term) ?? []), ...task.assignments]);
-        return terms;
-      }, new Map())
-      .entries(),
-  ).map(([term, assignments]) => ({ term, assignments }));
+  const {
+    isDatabaseConfigured,
+    lowResponseTaskCount,
+    participatingStudents,
+    recentTasks,
+    submittedAssignments,
+    taskCount,
+    totalAssignments,
+    totalCourses,
+    trendSummary,
+  } = await loadDashboardData();
+  const overallResponseRate = percentage(submittedAssignments, totalAssignments);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -130,7 +203,7 @@ export default async function AdminDashboardPage() {
       ) : null}
 
       <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-6" aria-label="关键指标">
-        <StatCard label="评教任务" value={formatInteger(tasks.length)} hint="全部任务数量" />
+        <StatCard label="评教任务" value={formatInteger(taskCount)} hint="全部任务数量" />
         <StatCard label="课程总数" value={formatInteger(totalCourses)} hint="基础课程库" />
         <StatCard
           label="参与学生"
@@ -139,24 +212,26 @@ export default async function AdminDashboardPage() {
         />
         <StatCard
           label="整体回收率"
-          value={formatPercent(assignmentResponseRate(tasks.flatMap((task) => task.assignments)))}
+          value={formatPercent(overallResponseRate)}
           hint={`${formatInteger(submittedAssignments)} / ${formatInteger(totalAssignments)} 已提交`}
         />
         <StatCard
           label="低回收预警"
-          value={formatInteger(lowResponseTasks.length)}
+          value={formatInteger(lowResponseTaskCount)}
           hint={`开放任务低于 ${LOW_RESPONSE_RATE}%`}
         />
-        <StatCard label="学期趋势" value="趋势" hint={termTrendSummary(trendTerms)} />
+        <StatCard label="学期趋势" value="趋势" hint={trendSummary} />
       </section>
 
       <DataTable
         headers={["任务", "学期", "状态", "派发", "已提交", "回收率"]}
         emptyText="暂无评教任务。"
-        rows={tasks.slice(0, 8).map((task) => [
+        rows={recentTasks.map((task) => [
           <div key="task">
             <div className="font-medium text-slate-900">{task.name}</div>
-            {lowResponseTasks.some((item) => item.id === task.id) ? (
+            {task.status === "OPEN" &&
+            task.totalAssignments > 0 &&
+            task.responseRate < LOW_RESPONSE_RATE ? (
               <div className="mt-1 text-xs text-amber-700">低回收率预警</div>
             ) : null}
           </div>,
@@ -164,9 +239,9 @@ export default async function AdminDashboardPage() {
           <StatusBadge key="status" tone={taskStatusTone(task.status)}>
             {taskStatusLabel(task.status)}
           </StatusBadge>,
-          formatInteger(task.assignments.length),
-          formatInteger(countSubmitted(task.assignments)),
-          formatPercent(assignmentResponseRate(task.assignments)),
+          formatInteger(task.totalAssignments),
+          formatInteger(task.submittedAssignments),
+          formatPercent(task.responseRate),
         ])}
       />
     </div>

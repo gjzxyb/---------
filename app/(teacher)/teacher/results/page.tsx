@@ -18,13 +18,9 @@ type TeacherResultClass = {
   name: string;
   term: string;
   course: { name: string; code: string };
-  assignments: {
-    task: { status: string };
-    response: {
-      status: string;
-      answers: { score: number | null }[];
-    } | null;
-  }[];
+  averageScore: number;
+  hasOpenTask: boolean;
+  submittedCount: number;
 };
 
 type TeacherResultsData = {
@@ -50,62 +46,92 @@ async function loadFreshTeacherResults(
   }
 
   const { prisma } = await import("@/lib/db");
-  const classes = await prisma.teachingClass.findMany({
+  const classesBase = await prisma.teachingClass.findMany({
     where: { teacherId },
-    include: {
-      course: true,
-      assignments: {
-        include: {
-          task: true,
-          response: {
-            include: {
-              answers: {
-                select: { score: true },
-              },
-            },
-          },
-        },
-      },
+    select: {
+      id: true,
+      name: true,
+      term: true,
+      course: { select: { code: true, name: true } },
     },
     orderBy: [{ term: "desc" }, { name: "asc" }],
   });
+  const classIds = classesBase.map((teachingClass) => teachingClass.id);
+
+  if (classIds.length === 0) {
+    return { classes: [], isDatabaseConfigured: true };
+  }
+
+  const [submittedGroups, openTaskGroups, answerRows] = await Promise.all([
+    prisma.evaluationAssignment.groupBy({
+      by: ["teachingClassId"],
+      _count: { _all: true },
+      where: {
+        response: { status: "SUBMITTED" },
+        teachingClassId: { in: classIds },
+      },
+    }),
+    prisma.evaluationAssignment.groupBy({
+      by: ["teachingClassId"],
+      _count: { _all: true },
+      where: {
+        task: { status: "OPEN" },
+        teachingClassId: { in: classIds },
+      },
+    }),
+    prisma.answer.findMany({
+      select: {
+        score: true,
+        response: {
+          select: {
+            assignment: { select: { teachingClassId: true } },
+            status: true,
+          },
+        },
+      },
+      where: {
+        score: { not: null },
+        response: {
+          status: "SUBMITTED",
+          assignment: { teachingClassId: { in: classIds } },
+        },
+      },
+    }),
+  ]);
+  const submittedByClass = new Map(
+    submittedGroups.map((group) => [group.teachingClassId, group._count._all]),
+  );
+  const openByClass = new Set(openTaskGroups.map((group) => group.teachingClassId));
+  const scoresByClass = new Map<string, number[]>();
+
+  answerRows.forEach((answer) => {
+    if (answer.score === null) {
+      return;
+    }
+
+    const teachingClassId = answer.response.assignment.teachingClassId;
+    scoresByClass.set(teachingClassId, [
+      ...(scoresByClass.get(teachingClassId) ?? []),
+      answer.score,
+    ]);
+  });
+
+  const classes = classesBase.map((teachingClass) => ({
+    ...teachingClass,
+    averageScore: averageScore(scoresByClass.get(teachingClass.id) ?? []),
+    hasOpenTask: openByClass.has(teachingClass.id),
+    submittedCount: submittedByClass.get(teachingClass.id) ?? 0,
+  }));
 
   return { classes, isDatabaseConfigured: true };
 }
 
-function getSubmittedResponses(teachingClass: TeacherResultClass) {
-  return teachingClass.assignments
-    .map((assignment) => assignment.response)
-    .filter(
-      (
-        response,
-      ): response is NonNullable<TeacherResultClass["assignments"][number]["response"]> =>
-        response?.status === "SUBMITTED",
-    );
-}
-
-function getAverageScore(teachingClass: TeacherResultClass) {
-  const scores = getSubmittedResponses(teachingClass).flatMap((response) =>
-    response.answers.flatMap((answer) =>
-      answer.score === null ? [] : [answer.score],
-    ),
-  );
-
-  return averageScore(scores);
-}
-
 function getResultStatus(teachingClass: TeacherResultClass) {
-  const submittedCount = getSubmittedResponses(teachingClass).length;
-
-  if (submittedCount < MIN_SAMPLE_SIZE) {
+  if (teachingClass.submittedCount < MIN_SAMPLE_SIZE) {
     return "样本不足";
   }
 
-  if (
-    teachingClass.assignments.some(
-      (assignment) => assignment.task.status === "OPEN",
-    )
-  ) {
+  if (teachingClass.hasOpenTask) {
     return "收集中";
   }
 
@@ -118,12 +144,11 @@ export default async function TeacherResultsPage() {
     session.user.id,
   );
   const submittedResponseCount = classes.reduce(
-    (total, teachingClass) => total + getSubmittedResponses(teachingClass).length,
+    (total, teachingClass) => total + teachingClass.submittedCount,
     0,
   );
   const releasedResultCount = classes.filter(
-    (teachingClass) =>
-      getSubmittedResponses(teachingClass).length >= MIN_SAMPLE_SIZE,
+    (teachingClass) => teachingClass.submittedCount >= MIN_SAMPLE_SIZE,
   ).length;
 
   return (
@@ -162,7 +187,7 @@ export default async function TeacherResultsPage() {
         headers={["课程班", "提交数", "平均分", "结果状态", "操作"]}
         emptyText="暂无评价结果。"
         rows={classes.map((teachingClass) => {
-          const submittedCount = getSubmittedResponses(teachingClass).length;
+          const submittedCount = teachingClass.submittedCount;
           const hasEnoughSamples = submittedCount >= MIN_SAMPLE_SIZE;
 
           return [
@@ -180,7 +205,7 @@ export default async function TeacherResultsPage() {
               </div>
             </Link>,
             submittedCount,
-            hasEnoughSamples ? getAverageScore(teachingClass) : "小样本隐藏",
+            hasEnoughSamples ? teachingClass.averageScore : "小样本隐藏",
             <StatusBadge
               key="status"
               tone={hasEnoughSamples ? "success" : "warning"}

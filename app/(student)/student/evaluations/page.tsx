@@ -74,13 +74,32 @@ async function loadFreshEvaluations(userId: string): Promise<EvaluationListData>
         { response: { status: "SUBMITTED" } },
       ],
     },
-    include: {
-      response: true,
-      task: true,
+    select: {
+      assignedAt: true,
+      id: true,
+      status: true,
+      submittedAt: true,
+      response: {
+        select: {
+          status: true,
+          submittedAt: true,
+          updatedAt: true,
+        },
+      },
+      task: {
+        select: {
+          endsAt: true,
+          name: true,
+          startsAt: true,
+          status: true,
+          term: true,
+        },
+      },
       teachingClass: {
-        include: {
-          course: true,
-          teacher: true,
+        select: {
+          name: true,
+          course: { select: { code: true, name: true } },
+          teacher: { select: { name: true } },
         },
       },
     },

@@ -80,6 +80,12 @@ export async function cachedJson<T>({
 
   if (Buffer.byteLength(serializedValue, "utf8") <= maxBytes) {
     await setCacheValue(key, serializedValue, ttlSeconds);
+  } else {
+    console.warn("Cache write skipped because payload is too large", {
+      key,
+      maxBytes,
+      payloadBytes: Buffer.byteLength(serializedValue, "utf8"),
+    });
   }
 
   return freshValue;
