@@ -12,11 +12,6 @@ import {
 } from "@/lib/admin/reports";
 import { requireRole } from "@/lib/auth/guards";
 import {
-  appCachePrefixes,
-  cachedJson,
-  stableCachePart,
-} from "@/lib/cache/app-cache";
-import {
   ADMIN_REPORT_ROLES,
   SMALL_SAMPLE_THRESHOLD,
   assignmentResponseRate,
@@ -181,23 +176,6 @@ function buildEvaluationPoints(assignments: TeacherReportAssignment[]) {
 }
 
 async function loadTeacherReport(
-  teacherId: string,
-  query: ReturnType<typeof parseReportQuery>,
-): Promise<{
-  assignments: TeacherReportAssignment[];
-  teacher: TeacherReportDetail | null;
-} | null> {
-  return cachedJson({
-    key: `${appCachePrefixes.reports}teacher-detail:${stableCachePart({
-      query,
-      teacherId,
-    })}`,
-    loader: () => loadFreshTeacherReport(teacherId, query),
-    ttlSeconds: 120,
-  });
-}
-
-async function loadFreshTeacherReport(
   teacherId: string,
   query: ReturnType<typeof parseReportQuery>,
 ): Promise<{

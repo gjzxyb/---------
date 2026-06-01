@@ -6,11 +6,6 @@ import { StatCard } from "@/components/stat-card";
 import { StatusBadge } from "@/components/status-badge";
 import { requireRole } from "@/lib/auth/guards";
 import {
-  appCachePrefixes,
-  cachedJson,
-  stableCachePart,
-} from "@/lib/cache/app-cache";
-import {
   buildReportSearchParams,
   maskSensitiveText,
   parseReportQuery,
@@ -108,20 +103,6 @@ function textDetails(
 }
 
 async function loadClassReportDetail(
-  teachingClassId: string,
-  query: ReturnType<typeof parseReportQuery>,
-): Promise<ClassReportDetail | null> {
-  return cachedJson({
-    key: `${appCachePrefixes.reports}class-detail:${stableCachePart({
-      query,
-      teachingClassId,
-    })}`,
-    loader: () => loadFreshClassReportDetail(teachingClassId, query),
-    ttlSeconds: 120,
-  });
-}
-
-async function loadFreshClassReportDetail(
   teachingClassId: string,
   query: ReturnType<typeof parseReportQuery>,
 ): Promise<ClassReportDetail | null> {

@@ -17,9 +17,12 @@ export const appCachePrefixes = {
 type CacheOptions<T> = {
   key: string;
   loader: () => Promise<T>;
+  maxBytes?: number;
   revive?: (value: unknown) => T;
   ttlSeconds: number;
 };
+
+const DEFAULT_MAX_CACHE_BYTES = 512 * 1024;
 
 function isIsoDateString(value: string) {
   return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
@@ -60,6 +63,7 @@ function stableStringify(value: unknown): string {
 export async function cachedJson<T>({
   key,
   loader,
+  maxBytes = DEFAULT_MAX_CACHE_BYTES,
   revive,
   ttlSeconds,
 }: CacheOptions<T>) {
@@ -72,7 +76,11 @@ export async function cachedJson<T>({
   }
 
   const freshValue = await loader();
-  await setCacheValue(key, JSON.stringify(freshValue), ttlSeconds);
+  const serializedValue = JSON.stringify(freshValue);
+
+  if (Buffer.byteLength(serializedValue, "utf8") <= maxBytes) {
+    await setCacheValue(key, serializedValue, ttlSeconds);
+  }
 
   return freshValue;
 }
