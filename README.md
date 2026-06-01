@@ -97,7 +97,7 @@ npm run build
 
 ## 生产部署
 
-生产部署建议使用 Docker Compose、PostgreSQL、Nginx 和 Git 更新流程。项目已提供：
+生产部署建议使用 Docker Compose、PostgreSQL、Redis、Nginx 和 Git 更新流程。项目已提供：
 
 - `Dockerfile`
 - `docker-compose.prod.yml`
