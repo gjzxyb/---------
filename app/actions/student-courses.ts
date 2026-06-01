@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 
 import { createSafeAuditLog } from "@/lib/audit-log";
 import { requireRole } from "@/lib/auth/guards";
+import {
+  invalidateDashboardCaches,
+  invalidateStudentEvaluationCaches,
+} from "@/lib/cache/app-cache";
 import { selfEnrollmentSchema } from "@/lib/student/self-enrollment";
 
 export async function selfEnrollTeachingClass(formData: FormData) {
@@ -48,6 +52,10 @@ export async function selfEnrollTeachingClass(formData: FormData) {
   revalidatePath("/student/courses");
   revalidatePath("/student/evaluations");
   revalidatePath("/dashboard");
+  await Promise.all([
+    invalidateDashboardCaches(),
+    invalidateStudentEvaluationCaches(session.user.id),
+  ]);
 }
 
 export async function selfUnenrollTeachingClass(formData: FormData) {
@@ -72,6 +80,7 @@ export async function selfUnenrollTeachingClass(formData: FormData) {
 
   if (!enrollment) {
     revalidatePath("/student/courses");
+    await invalidateStudentEvaluationCaches(session.user.id);
     return;
   }
 
@@ -103,4 +112,8 @@ export async function selfUnenrollTeachingClass(formData: FormData) {
   revalidatePath("/student/courses");
   revalidatePath("/student/evaluations");
   revalidatePath("/dashboard");
+  await Promise.all([
+    invalidateDashboardCaches(),
+    invalidateStudentEvaluationCaches(session.user.id),
+  ]);
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { StatusBadge } from "@/components/status-badge";
 import { requireSession } from "@/lib/auth/guards";
+import { appCachePrefixes, cachedJson, stableCachePart } from "@/lib/cache/app-cache";
 import type { Role } from "@/lib/generated/prisma/enums";
 
 type DashboardMetric = {
@@ -97,6 +98,17 @@ function fallbackContent(role: Role): DashboardContent {
 }
 
 async function loadDashboardContent(
+  role: Role,
+  userId: string,
+): Promise<DashboardContent> {
+  return cachedJson({
+    key: `${appCachePrefixes.dashboard}${stableCachePart({ role, userId })}`,
+    loader: () => loadFreshDashboardContent(role, userId),
+    ttlSeconds: 30,
+  });
+}
+
+async function loadFreshDashboardContent(
   role: Role,
   userId: string,
 ): Promise<DashboardContent> {

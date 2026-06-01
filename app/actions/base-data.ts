@@ -10,6 +10,7 @@ import {
   parseTeachingClassImportCsv,
   summarizeGradePrefixEnrollmentPlan,
 } from "@/lib/base-data/class-enrollment";
+import { invalidateAppCaches } from "@/lib/cache/app-cache";
 import { parseCourseImportCsv } from "@/lib/base-data/course-import";
 import {
   courseSchema,
@@ -42,7 +43,7 @@ function getErrorMessage(error: unknown) {
   return initialImportErrorMessage;
 }
 
-function baseDataPaths() {
+async function baseDataPaths() {
   [
     "/admin/base-data",
     "/admin/base-data/organizations",
@@ -51,6 +52,7 @@ function baseDataPaths() {
     "/admin/base-data/teachers",
     "/admin/base-data/classes",
   ].forEach((path) => revalidatePath(path));
+  await invalidateAppCaches();
 }
 
 export async function createOrganization(formData: FormData) {
@@ -63,7 +65,7 @@ export async function createOrganization(formData: FormData) {
   const { prisma } = await import("@/lib/db");
 
   await prisma.organization.create({ data: parsed });
-  baseDataPaths();
+  await baseDataPaths();
 }
 
 export async function deleteOrganization(formData: FormData) {
@@ -90,7 +92,7 @@ export async function deleteOrganization(formData: FormData) {
   }
 
   await prisma.organization.delete({ where: { id } });
-  baseDataPaths();
+  await baseDataPaths();
 }
 
 export async function createCourse(formData: FormData) {
@@ -103,7 +105,7 @@ export async function createCourse(formData: FormData) {
   const { prisma } = await import("@/lib/db");
 
   await prisma.course.create({ data: parsed });
-  baseDataPaths();
+  await baseDataPaths();
 }
 
 export async function deleteCourse(formData: FormData) {
@@ -117,7 +119,7 @@ export async function deleteCourse(formData: FormData) {
   }
 
   await prisma.course.delete({ where: { id } });
-  baseDataPaths();
+  await baseDataPaths();
 }
 
 export async function deleteCourses(formData: FormData) {
@@ -125,7 +127,7 @@ export async function deleteCourses(formData: FormData) {
   const rawIds = formData.getAll("ids").map((value) => String(value));
 
   if (rawIds.length === 0) {
-    baseDataPaths();
+    await baseDataPaths();
     return;
   }
 
@@ -143,12 +145,12 @@ export async function deleteCourses(formData: FormData) {
     .map((course) => course.id);
 
   if (deletableIds.length === 0) {
-    baseDataPaths();
+    await baseDataPaths();
     return;
   }
 
   await prisma.course.deleteMany({ where: { id: { in: deletableIds } } });
-  baseDataPaths();
+  await baseDataPaths();
 }
 
 export async function importCourses(formData: FormData) {
@@ -162,7 +164,7 @@ export async function importCourses(formData: FormData) {
   const rows = parseCourseImportCsv(await file.text());
 
   if (rows.length === 0) {
-    baseDataPaths();
+    await baseDataPaths();
     return;
   }
 
@@ -207,7 +209,7 @@ export async function importCourses(formData: FormData) {
     });
   }
 
-  baseDataPaths();
+  await baseDataPaths();
 }
 
 export async function importCoursesWithState(
@@ -259,7 +261,7 @@ export async function createStudent(formData: FormData) {
       },
     },
   });
-  baseDataPaths();
+  await baseDataPaths();
 }
 
 export async function importStudents(formData: FormData) {
@@ -333,7 +335,7 @@ export async function importStudents(formData: FormData) {
     });
   }
 
-  baseDataPaths();
+  await baseDataPaths();
 }
 
 export async function importStudentsWithState(
@@ -369,7 +371,7 @@ export async function deleteStudent(formData: FormData) {
   }
 
   await prisma.user.delete({ where: { id } });
-  baseDataPaths();
+  await baseDataPaths();
 }
 
 export async function deleteStudents(formData: FormData) {
@@ -377,7 +379,7 @@ export async function deleteStudents(formData: FormData) {
   const rawIds = formData.getAll("ids").map((value) => String(value));
 
   if (rawIds.length === 0) {
-    baseDataPaths();
+    await baseDataPaths();
     return;
   }
 
@@ -400,14 +402,14 @@ export async function deleteStudents(formData: FormData) {
     .map((student) => student.id);
 
   if (deletableIds.length === 0) {
-    baseDataPaths();
+    await baseDataPaths();
     return;
   }
 
   await prisma.user.deleteMany({
     where: { id: { in: deletableIds }, role: "STUDENT" },
   });
-  baseDataPaths();
+  await baseDataPaths();
 }
 
 export async function markStudentGraduated(formData: FormData) {
@@ -424,7 +426,7 @@ export async function markStudentGraduated(formData: FormData) {
   }
 
   if (student.status === "GRADUATED") {
-    baseDataPaths();
+    await baseDataPaths();
     return;
   }
 
@@ -440,7 +442,7 @@ export async function markStudentGraduated(formData: FormData) {
     metadata: { fromStatus: student.status, studentName: student.name },
   });
 
-  baseDataPaths();
+  await baseDataPaths();
 }
 
 export async function restoreGraduatedStudent(formData: FormData) {
@@ -457,7 +459,7 @@ export async function restoreGraduatedStudent(formData: FormData) {
   }
 
   if (student.status !== "GRADUATED") {
-    baseDataPaths();
+    await baseDataPaths();
     return;
   }
 
@@ -473,7 +475,7 @@ export async function restoreGraduatedStudent(formData: FormData) {
     metadata: { fromStatus: student.status, studentName: student.name },
   });
 
-  baseDataPaths();
+  await baseDataPaths();
 }
 
 export async function markStudentsGraduated(formData: FormData) {
@@ -481,7 +483,7 @@ export async function markStudentsGraduated(formData: FormData) {
   const rawIds = formData.getAll("ids").map((value) => String(value));
 
   if (rawIds.length === 0) {
-    baseDataPaths();
+    await baseDataPaths();
     return;
   }
 
@@ -498,7 +500,7 @@ export async function markStudentsGraduated(formData: FormData) {
   const studentIds = students.map((student) => student.id);
 
   if (studentIds.length === 0) {
-    baseDataPaths();
+    await baseDataPaths();
     return;
   }
 
@@ -516,7 +518,7 @@ export async function markStudentsGraduated(formData: FormData) {
     },
   });
 
-  baseDataPaths();
+  await baseDataPaths();
 }
 
 export async function createTeacher(formData: FormData) {
@@ -547,7 +549,7 @@ export async function createTeacher(formData: FormData) {
       },
     },
   });
-  baseDataPaths();
+  await baseDataPaths();
 }
 
 export async function deleteTeacher(formData: FormData) {
@@ -561,7 +563,7 @@ export async function deleteTeacher(formData: FormData) {
   }
 
   await prisma.user.delete({ where: { id } });
-  baseDataPaths();
+  await baseDataPaths();
 }
 
 export async function importTeachers(formData: FormData) {
@@ -634,7 +636,7 @@ export async function importTeachers(formData: FormData) {
     });
   }
 
-  baseDataPaths();
+  await baseDataPaths();
 }
 
 export async function importTeachersWithState(
@@ -661,7 +663,7 @@ export async function deleteTeachers(formData: FormData) {
   const rawIds = formData.getAll("ids").map((value) => String(value));
 
   if (rawIds.length === 0) {
-    baseDataPaths();
+    await baseDataPaths();
     return;
   }
 
@@ -679,14 +681,14 @@ export async function deleteTeachers(formData: FormData) {
     .map((teacher) => teacher.id);
 
   if (deletableIds.length === 0) {
-    baseDataPaths();
+    await baseDataPaths();
     return;
   }
 
   await prisma.user.deleteMany({
     where: { id: { in: deletableIds }, role: "TEACHER" },
   });
-  baseDataPaths();
+  await baseDataPaths();
 }
 
 export async function createTeachingClass(formData: FormData) {
@@ -701,7 +703,7 @@ export async function createTeachingClass(formData: FormData) {
   const { prisma } = await import("@/lib/db");
 
   await prisma.teachingClass.create({ data: parsed });
-  baseDataPaths();
+  await baseDataPaths();
 }
 
 export async function importTeachingClasses(formData: FormData) {
@@ -715,7 +717,7 @@ export async function importTeachingClasses(formData: FormData) {
   const rows = parseTeachingClassImportCsv(await file.text());
 
   if (rows.length === 0) {
-    baseDataPaths();
+    await baseDataPaths();
     return;
   }
 
@@ -784,7 +786,7 @@ export async function importTeachingClasses(formData: FormData) {
     });
   }
 
-  baseDataPaths();
+  await baseDataPaths();
 }
 
 export async function importTeachingClassesWithState(
@@ -819,7 +821,7 @@ export async function deleteTeachingClass(formData: FormData) {
   }
 
   await prisma.teachingClass.delete({ where: { id } });
-  baseDataPaths();
+  await baseDataPaths();
 }
 
 export async function deleteTeachingClasses(formData: FormData) {
@@ -827,7 +829,7 @@ export async function deleteTeachingClasses(formData: FormData) {
   const rawIds = formData.getAll("ids").map((value) => String(value));
 
   if (rawIds.length === 0) {
-    baseDataPaths();
+    await baseDataPaths();
     return;
   }
 
@@ -845,14 +847,14 @@ export async function deleteTeachingClasses(formData: FormData) {
     .map((teachingClass) => teachingClass.id);
 
   if (deletableIds.length === 0) {
-    baseDataPaths();
+    await baseDataPaths();
     return;
   }
 
   await prisma.teachingClass.deleteMany({
     where: { id: { in: deletableIds } },
   });
-  baseDataPaths();
+  await baseDataPaths();
 }
 
 export async function createEnrollment(formData: FormData) {
@@ -864,7 +866,7 @@ export async function createEnrollment(formData: FormData) {
   const { prisma } = await import("@/lib/db");
 
   await prisma.enrollment.create({ data: parsed });
-  baseDataPaths();
+  await baseDataPaths();
 }
 
 export async function importEnrollments(formData: FormData) {
@@ -878,7 +880,7 @@ export async function importEnrollments(formData: FormData) {
   const rows = parseEnrollmentImportCsv(await file.text());
 
   if (rows.length === 0) {
-    baseDataPaths();
+    await baseDataPaths();
     return;
   }
 
@@ -941,7 +943,7 @@ export async function importEnrollments(formData: FormData) {
     });
   }
 
-  baseDataPaths();
+  await baseDataPaths();
 }
 
 export async function importEnrollmentsWithState(
@@ -1009,7 +1011,7 @@ export async function generateEnrollmentsByGradePrefixWithState(
       });
     }
 
-    baseDataPaths();
+    await baseDataPaths();
 
     return {
       ok: true,
@@ -1043,7 +1045,7 @@ export async function deleteEnrollment(formData: FormData) {
   });
 
   if (!enrollment) {
-    baseDataPaths();
+    await baseDataPaths();
     return;
   }
 
@@ -1059,7 +1061,7 @@ export async function deleteEnrollment(formData: FormData) {
   }
 
   await prisma.enrollment.delete({ where: { id } });
-  baseDataPaths();
+  await baseDataPaths();
 }
 
 export async function deleteEnrollments(formData: FormData) {
@@ -1067,7 +1069,7 @@ export async function deleteEnrollments(formData: FormData) {
   const rawIds = formData.getAll("ids").map((value) => String(value));
 
   if (rawIds.length === 0) {
-    baseDataPaths();
+    await baseDataPaths();
     return;
   }
 
@@ -1079,7 +1081,7 @@ export async function deleteEnrollments(formData: FormData) {
   });
 
   if (enrollments.length === 0) {
-    baseDataPaths();
+    await baseDataPaths();
     return;
   }
 
@@ -1105,10 +1107,11 @@ export async function deleteEnrollments(formData: FormData) {
     .map((enrollment) => enrollment.id);
 
   if (deletableIds.length === 0) {
-    baseDataPaths();
+    await baseDataPaths();
     return;
   }
 
   await prisma.enrollment.deleteMany({ where: { id: { in: deletableIds } } });
-  baseDataPaths();
+  await baseDataPaths();
 }
+

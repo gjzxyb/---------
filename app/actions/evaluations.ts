@@ -2,6 +2,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireRole } from "../../lib/auth/guards";
+import {
+  invalidateDashboardCaches,
+  invalidateReportCaches,
+  invalidateStudentEvaluationCaches,
+  invalidateTeacherResultCaches,
+} from "../../lib/cache/app-cache";
+import { withEvaluationSubmissionLock } from "../../lib/cache/safety";
 import { evaluationSubmissionSchema } from "../../lib/evaluation/validation";
 
 type ParsedEvaluationAnswer =
@@ -74,41 +81,45 @@ async function persistEvaluation(
 
   const submittedAt = status === "SUBMITTED" ? new Date() : null;
 
-  await prisma.$transaction(async (tx) => {
-    const assignment = await tx.evaluationAssignment.findFirst({
-      where: {
-        id: parsedSubmission.assignmentId,
-        evaluatorId: session.user.id,
-      },
-      include: {
-        task: {
+  await withEvaluationSubmissionLock(
+    session.user.id,
+    parsedSubmission.assignmentId,
+    async () =>
+      prisma.$transaction(async (tx) => {
+        const assignment = await tx.evaluationAssignment.findFirst({
+          where: {
+            id: parsedSubmission.assignmentId,
+            evaluatorId: session.user.id,
+          },
           include: {
-            template: {
+            task: {
               include: {
-                questions: true,
+                template: {
+                  include: {
+                    questions: true,
+                  },
+                },
               },
             },
+            response: true,
           },
-        },
-        response: true,
-      },
-    });
+        });
 
-    if (!assignment) {
-      throw new Error("Evaluation assignment was not found.");
-    }
+        if (!assignment) {
+          throw new Error("Evaluation assignment was not found.");
+        }
 
-    if (assignment.task.status !== "OPEN") {
-      throw new Error("Evaluation task is not open.");
-    }
+        if (assignment.task.status !== "OPEN") {
+          throw new Error("Evaluation task is not open.");
+        }
 
-    if (!isWithinTaskWindow(assignment.task)) {
-      throw new Error("Evaluation task is outside the active time window.");
-    }
+        if (!isWithinTaskWindow(assignment.task)) {
+          throw new Error("Evaluation task is outside the active time window.");
+        }
 
-    if (assignment.response?.status === "SUBMITTED") {
-      throw new Error("Evaluation response has already been submitted.");
-    }
+        if (assignment.response?.status === "SUBMITTED") {
+          throw new Error("Evaluation response has already been submitted.");
+        }
 
     const questionsById = new Map(
       assignment.task.template.questions.map((question) => [
@@ -227,10 +238,17 @@ async function persistEvaluation(
     if (assignmentUpdate.count !== 1) {
       throw new Error("Evaluation assignment has already been submitted.");
     }
-  });
+    }),
+  );
 
   revalidatePath("/student/evaluations");
   revalidatePath(`/student/evaluations/${parsedSubmission.assignmentId}`);
+  await Promise.all([
+    invalidateDashboardCaches(),
+    invalidateReportCaches(),
+    invalidateStudentEvaluationCaches(session.user.id),
+    invalidateTeacherResultCaches(),
+  ]);
 }
 
 export async function saveEvaluationDraft(formData: FormData) {

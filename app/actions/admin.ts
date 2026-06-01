@@ -7,6 +7,10 @@ import { canUpdateUserRole } from "@/lib/admin/user-role-permissions";
 import { createSafeAuditLog } from "@/lib/audit-log";
 import { ADMIN_ROLES, isDatabaseConfigured } from "@/lib/demo-data";
 import {
+  invalidateDashboardCaches,
+  invalidateEvaluationCaches,
+} from "@/lib/cache/app-cache";
+import {
   adminSettingsSchema,
   assignmentDeleteSchema,
   evaluationTaskSchema,
@@ -39,6 +43,11 @@ function buildQuestionDescription(question: {
   return parts.length ? parts.join("；") : null;
 }
 
+async function refreshEvaluationPages(paths: string[]) {
+  paths.forEach((path) => revalidatePath(path));
+  await invalidateEvaluationCaches();
+}
+
 export async function createQuestionBankItem(formData: FormData) {
   await requireRole([...ADMIN_ROLES]);
   const parsedItem = questionBankItemSchema.parse({
@@ -54,7 +63,7 @@ export async function createQuestionBankItem(formData: FormData) {
     data: parsedItem,
   });
 
-  revalidatePath("/admin/templates");
+  await refreshEvaluationPages(["/admin/templates"]);
 }
 
 export async function deleteQuestionBankItem(formData: FormData) {
@@ -76,7 +85,7 @@ export async function deleteQuestionBankItem(formData: FormData) {
     where: { id: parsedQuestion.questionId },
   });
 
-  revalidatePath("/admin/templates");
+  await refreshEvaluationPages(["/admin/templates"]);
 }
 
 export async function createEvaluationTemplate(formData: FormData) {
@@ -108,7 +117,7 @@ export async function createEvaluationTemplate(formData: FormData) {
     },
   });
 
-  revalidatePath("/admin/templates");
+  await refreshEvaluationPages(["/admin/templates"]);
 }
 
 export async function updateEvaluationTemplateQuestions(formData: FormData) {
@@ -143,7 +152,7 @@ export async function updateEvaluationTemplateQuestions(formData: FormData) {
     }),
   ]);
 
-  revalidatePath("/admin/templates");
+  await refreshEvaluationPages(["/admin/templates"]);
 }
 
 export async function deleteEvaluationTemplate(formData: FormData) {
@@ -165,8 +174,7 @@ export async function deleteEvaluationTemplate(formData: FormData) {
     where: { id: parsedTemplate.templateId },
   });
 
-  revalidatePath("/admin/templates");
-  revalidatePath("/admin/tasks");
+  await refreshEvaluationPages(["/admin/templates", "/admin/tasks"]);
 }
 
 export async function createEvaluationTask(formData: FormData) {
@@ -185,8 +193,7 @@ export async function createEvaluationTask(formData: FormData) {
     data: parsedTask,
   });
 
-  revalidatePath("/admin/tasks");
-  revalidatePath("/admin/dashboard");
+  await refreshEvaluationPages(["/admin/tasks", "/admin/dashboard"]);
 }
 
 export async function updateEvaluationTaskStatus(formData: FormData) {
@@ -202,8 +209,7 @@ export async function updateEvaluationTaskStatus(formData: FormData) {
     data: { status: parsedStatus.status },
   });
 
-  revalidatePath("/admin/tasks");
-  revalidatePath("/admin/dashboard");
+  await refreshEvaluationPages(["/admin/tasks", "/admin/dashboard"]);
 }
 
 export async function generateEvaluationAssignments(formData: FormData) {
@@ -286,9 +292,11 @@ export async function generateEvaluationAssignments(formData: FormData) {
     });
   }
 
-  revalidatePath("/admin/tasks");
-  revalidatePath("/admin/dashboard");
-  revalidatePath("/student/evaluations");
+  await refreshEvaluationPages([
+    "/admin/tasks",
+    "/admin/dashboard",
+    "/student/evaluations",
+  ]);
 }
 
 export async function closeEvaluationTaskAndExpirePending(formData: FormData) {
@@ -313,9 +321,11 @@ export async function closeEvaluationTaskAndExpirePending(formData: FormData) {
     }),
   ]);
 
-  revalidatePath("/admin/tasks");
-  revalidatePath("/admin/dashboard");
-  revalidatePath("/student/evaluations");
+  await refreshEvaluationPages([
+    "/admin/tasks",
+    "/admin/dashboard",
+    "/student/evaluations",
+  ]);
 }
 
 export async function remindPendingEvaluationAssignments(formData: FormData) {
@@ -363,9 +373,11 @@ export async function deleteEvaluationAssignment(formData: FormData) {
     where: { id: parsedAssignment.assignmentId },
   });
 
-  revalidatePath("/admin/tasks");
-  revalidatePath("/admin/dashboard");
-  revalidatePath("/student/evaluations");
+  await refreshEvaluationPages([
+    "/admin/tasks",
+    "/admin/dashboard",
+    "/student/evaluations",
+  ]);
 }
 
 export async function deleteEvaluationTask(formData: FormData) {
@@ -387,8 +399,7 @@ export async function deleteEvaluationTask(formData: FormData) {
     where: { id: parsedTask.taskId },
   });
 
-  revalidatePath("/admin/tasks");
-  revalidatePath("/admin/dashboard");
+  await refreshEvaluationPages(["/admin/tasks", "/admin/dashboard"]);
 }
 
 export async function updateAdminSettings(formData: FormData) {
@@ -431,6 +442,7 @@ export async function updateAdminSettings(formData: FormData) {
   }
 
   revalidatePath("/admin/settings");
+  await invalidateDashboardCaches();
 }
 
 export async function updateUserRole(formData: FormData) {
@@ -451,6 +463,7 @@ export async function updateUserRole(formData: FormData) {
 
   if (targetUser.role === parsedRole.role) {
     revalidatePath("/admin/settings");
+    await invalidateDashboardCaches();
     return;
   }
 
@@ -486,4 +499,5 @@ export async function updateUserRole(formData: FormData) {
   });
 
   revalidatePath("/admin/settings");
+  await invalidateDashboardCaches();
 }

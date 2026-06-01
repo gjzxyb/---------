@@ -2,6 +2,11 @@ import Link from "next/link";
 
 import { StatusBadge } from "@/components/status-badge";
 import { requireRole } from "@/lib/auth/guards";
+import {
+  appCachePrefixes,
+  cachedJson,
+  stableCachePart,
+} from "@/lib/cache/app-cache";
 
 type AssignmentRow = {
   id: string;
@@ -34,6 +39,14 @@ type EvaluationListData = {
 };
 
 async function loadEvaluations(userId: string): Promise<EvaluationListData> {
+  return cachedJson({
+    key: `${appCachePrefixes.studentEvaluations}${stableCachePart(userId)}:list`,
+    loader: () => loadFreshEvaluations(userId),
+    ttlSeconds: 20,
+  });
+}
+
+async function loadFreshEvaluations(userId: string): Promise<EvaluationListData> {
   if (!process.env.DATABASE_URL) {
     return { pending: [], completed: [], isDatabaseConfigured: false };
   }

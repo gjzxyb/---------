@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireRole } from "@/lib/auth/guards";
+import { invalidateTeacherResultCaches } from "@/lib/cache/app-cache";
 import { improvementPlanSchema } from "@/lib/evaluation/validation";
 
 const improvementStatusSchema = improvementPlanSchema.shape.status.unwrap();
@@ -46,6 +47,7 @@ export async function createImprovementPlan(formData: FormData) {
   revalidatePath("/teacher/improvements");
   revalidatePath("/teacher/results");
   revalidatePath(`/teacher/results/${parsedPlan.teachingClassId}`);
+  await invalidateTeacherResultCaches(session.user.id);
 }
 
 export async function updateImprovementPlanStatus(formData: FormData) {
@@ -76,4 +78,5 @@ export async function updateImprovementPlanStatus(formData: FormData) {
   revalidatePath("/teacher/improvements");
   revalidatePath("/teacher/results");
   revalidatePath(`/teacher/results/${plan.teachingClassId}`);
+  await invalidateTeacherResultCaches(session.user.id);
 }

@@ -21,6 +21,11 @@ import {
   isDatabaseConfigured,
   roundMetric,
 } from "@/lib/demo-data";
+import {
+  appCachePrefixes,
+  cachedJson,
+  stableCachePart,
+} from "@/lib/cache/app-cache";
 
 const LOW_RESPONSE_RATE = 60;
 const REPORT_PAGE_SIZE = 10;
@@ -720,6 +725,16 @@ function buildAssignmentWhere(query: ReturnType<typeof parseReportQuery>) {
 }
 
 async function loadReportData(
+  query: ReturnType<typeof parseReportQuery>,
+): Promise<ReportData> {
+  return cachedJson({
+    key: `${appCachePrefixes.reports}${stableCachePart(query)}`,
+    loader: () => loadFreshReportData(query),
+    ttlSeconds: 120,
+  });
+}
+
+async function loadFreshReportData(
   query: ReturnType<typeof parseReportQuery>,
 ): Promise<ReportData> {
   if (!isDatabaseConfigured()) {

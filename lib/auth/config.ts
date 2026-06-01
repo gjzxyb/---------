@@ -4,6 +4,11 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/db";
 import { UserStatus } from "@/lib/generated/prisma/enums";
 import { verifyPassword } from "@/lib/auth/password";
+import {
+  isLoginLimited,
+  recordAndCheckLoginFailure,
+  resetLoginFailures,
+} from "@/lib/cache/safety";
 
 export const authOptions: NextAuthOptions = {
   pages: {
@@ -27,6 +32,10 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
+        if (await isLoginLimited(email)) {
+          return null;
+        }
+
         const user = await prisma.user.findUnique({
           where: { email },
           select: {
@@ -41,14 +50,18 @@ export const authOptions: NextAuthOptions = {
         });
 
         if (!user || user.status !== UserStatus.ACTIVE) {
+          await recordAndCheckLoginFailure(email);
           return null;
         }
 
         const validPassword = await verifyPassword(password, user.passwordHash);
 
         if (!validPassword) {
+          await recordAndCheckLoginFailure(email);
           return null;
         }
+
+        await resetLoginFailures(email);
 
         return {
           id: user.id,

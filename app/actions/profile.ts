@@ -6,6 +6,10 @@ import { createSafeAuditLog } from "@/lib/audit-log";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { requireSession } from "@/lib/auth/guards";
 import {
+  invalidateDashboardCaches,
+  invalidateStudentEvaluationCaches,
+} from "@/lib/cache/app-cache";
+import {
   passwordChangeSchema,
   profileUpdateSchema,
   studentClassUpdateSchema,
@@ -82,6 +86,7 @@ export async function updateOwnProfile(
 
   revalidatePath("/profile");
   revalidatePath("/dashboard");
+  await invalidateDashboardCaches();
 
   return { ok: true, message: "个人资料已更新，顶部姓名会在重新登录后同步。" };
 }
@@ -215,6 +220,10 @@ export async function updateOwnStudentClass(
   revalidatePath("/profile");
   revalidatePath("/dashboard");
   revalidatePath("/student/evaluations");
+  await Promise.all([
+    invalidateDashboardCaches(),
+    invalidateStudentEvaluationCaches(session.user.id),
+  ]);
 
   return { ok: true, message: "班级已更新。已选课程和历史评教记录不会自动变更。" };
 }

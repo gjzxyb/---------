@@ -4,6 +4,11 @@ import { DataTable } from "@/components/data-table";
 import { StatCard } from "@/components/stat-card";
 import { StatusBadge } from "@/components/status-badge";
 import { requireRole } from "@/lib/auth/guards";
+import {
+  appCachePrefixes,
+  cachedJson,
+  stableCachePart,
+} from "@/lib/cache/app-cache";
 import { averageScore } from "@/lib/evaluation/aggregate";
 
 const MIN_SAMPLE_SIZE = 3;
@@ -28,6 +33,16 @@ type TeacherResultsData = {
 };
 
 async function loadTeacherResults(
+  teacherId: string,
+): Promise<TeacherResultsData> {
+  return cachedJson({
+    key: `${appCachePrefixes.teacherResults}${stableCachePart(teacherId)}:list`,
+    loader: () => loadFreshTeacherResults(teacherId),
+    ttlSeconds: 60,
+  });
+}
+
+async function loadFreshTeacherResults(
   teacherId: string,
 ): Promise<TeacherResultsData> {
   if (!process.env.DATABASE_URL) {

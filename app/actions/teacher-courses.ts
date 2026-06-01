@@ -5,6 +5,11 @@ import { revalidatePath } from "next/cache";
 import { createSafeAuditLog } from "@/lib/audit-log";
 import { requireRole } from "@/lib/auth/guards";
 import {
+  invalidateDashboardCaches,
+  invalidateReportCaches,
+  invalidateTeacherResultCaches,
+} from "@/lib/cache/app-cache";
+import {
   canMaintainTeachingClass,
   parseTeacherTeachingClassInput,
 } from "@/lib/teacher/courses";
@@ -89,6 +94,11 @@ export async function createOwnTeachingClass(formData: FormData) {
 
   revalidatePath("/teacher/courses");
   revalidatePath("/teacher/results");
+  await Promise.all([
+    invalidateDashboardCaches(),
+    invalidateReportCaches(),
+    invalidateTeacherResultCaches(session.user.id),
+  ]);
 }
 
 export async function updateOwnTeachingClass(formData: FormData) {
@@ -196,4 +206,9 @@ export async function updateOwnTeachingClass(formData: FormData) {
   revalidatePath("/teacher/courses");
   revalidatePath("/teacher/results");
   revalidatePath(`/teacher/results/${teachingClass.id}`);
+  await Promise.all([
+    invalidateDashboardCaches(),
+    invalidateReportCaches(),
+    invalidateTeacherResultCaches(session.user.id),
+  ]);
 }

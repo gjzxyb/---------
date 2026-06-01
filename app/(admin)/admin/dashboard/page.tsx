@@ -2,6 +2,7 @@ import { DataTable } from "@/components/data-table";
 import { StatCard } from "@/components/stat-card";
 import { StatusBadge } from "@/components/status-badge";
 import { requireRole } from "@/lib/auth/guards";
+import { appCachePrefixes, cachedJson } from "@/lib/cache/app-cache";
 import {
   ADMIN_ROLES,
   assignmentResponseRate,
@@ -37,6 +38,14 @@ type DashboardData = {
 };
 
 async function loadDashboardData(): Promise<DashboardData> {
+  return cachedJson({
+    key: `${appCachePrefixes.adminDashboard}overview`,
+    loader: loadFreshDashboardData,
+    ttlSeconds: 60,
+  });
+}
+
+async function loadFreshDashboardData(): Promise<DashboardData> {
   if (!isDatabaseConfigured()) {
     return {
       tasks: [],

@@ -6,6 +6,11 @@ import { StatCard } from "@/components/stat-card";
 import { StatusBadge } from "@/components/status-badge";
 import { requireRole } from "@/lib/auth/guards";
 import {
+  appCachePrefixes,
+  cachedJson,
+  stableCachePart,
+} from "@/lib/cache/app-cache";
+import {
   averageScore,
   summarizeQuestionScores,
 } from "@/lib/evaluation/aggregate";
@@ -51,6 +56,20 @@ type ResultDetail = {
 };
 
 async function loadResultDetail(
+  teachingClassId: string,
+  teacherId: string,
+): Promise<ResultDetail | null> {
+  return cachedJson({
+    key: `${appCachePrefixes.teacherResults}${stableCachePart({
+      teacherId,
+      teachingClassId,
+    })}:detail`,
+    loader: () => loadFreshResultDetail(teachingClassId, teacherId),
+    ttlSeconds: 60,
+  });
+}
+
+async function loadFreshResultDetail(
   teachingClassId: string,
   teacherId: string,
 ): Promise<ResultDetail | null> {
