@@ -32,6 +32,13 @@ type AssignmentRow = {
   };
 };
 
+type AssignmentListState = {
+  actionLabel: string;
+  dateLabel: string;
+  statusLabel: string;
+  tone: "neutral" | "success" | "warning" | "danger" | "info";
+};
+
 type EvaluationListData = {
   pending: AssignmentRow[];
   completed: AssignmentRow[];
@@ -51,29 +58,9 @@ async function loadFreshEvaluations(userId: string): Promise<EvaluationListData>
     return { pending: [], completed: [], isDatabaseConfigured: false };
   }
 
-  const now = new Date();
   const { prisma } = await import("@/lib/db");
   const assignments = await prisma.evaluationAssignment.findMany({
-    where: {
-      evaluatorId: userId,
-      OR: [
-        {
-          AND: [
-            {
-              OR: [{ status: "PENDING" }, { response: { status: "DRAFT" } }],
-            },
-            { task: { status: "OPEN" } },
-            {
-              OR: [{ task: { startsAt: null } }, { task: { startsAt: { lte: now } } }],
-            },
-            {
-              OR: [{ task: { endsAt: null } }, { task: { endsAt: { gte: now } } }],
-            },
-          ],
-        },
-        { response: { status: "SUBMITTED" } },
-      ],
-    },
+    where: { evaluatorId: userId },
     select: {
       assignedAt: true,
       id: true,
@@ -109,14 +96,13 @@ async function loadFreshEvaluations(userId: string): Promise<EvaluationListData>
   return {
     pending: assignments.filter(
       (assignment) =>
-        (assignment.status === "PENDING" ||
-          assignment.response?.status === "DRAFT") &&
-        assignment.task.status === "OPEN" &&
-        (!assignment.task.startsAt || assignment.task.startsAt <= now) &&
-        (!assignment.task.endsAt || assignment.task.endsAt >= now),
+        assignment.status !== "SUBMITTED" &&
+        assignment.response?.status !== "SUBMITTED",
     ),
     completed: assignments.filter(
-      (assignment) => assignment.response?.status === "SUBMITTED",
+      (assignment) =>
+        assignment.status === "SUBMITTED" ||
+        assignment.response?.status === "SUBMITTED",
     ),
     isDatabaseConfigured: true,
   };
@@ -134,6 +120,77 @@ function formatDate(date: Date | null) {
   }).format(date);
 }
 
+function getAssignmentListState(
+  assignment: AssignmentRow,
+  mode: "pending" | "completed",
+  now = new Date(),
+): AssignmentListState {
+  if (
+    mode === "completed" ||
+    assignment.status === "SUBMITTED" ||
+    assignment.response?.status === "SUBMITTED"
+  ) {
+    return {
+      actionLabel: "查看",
+      dateLabel: formatDate(assignment.response?.submittedAt ?? assignment.submittedAt),
+      statusLabel: "已提交",
+      tone: "success",
+    };
+  }
+
+  if (assignment.response?.status === "DRAFT") {
+    return {
+      actionLabel: "继续填写",
+      dateLabel: formatDate(assignment.task.endsAt),
+      statusLabel: "草稿",
+      tone: "warning",
+    };
+  }
+
+  if (assignment.status === "EXPIRED") {
+    return {
+      actionLabel: "查看",
+      dateLabel: formatDate(assignment.task.endsAt),
+      statusLabel: "已过期",
+      tone: "danger",
+    };
+  }
+
+  if (assignment.task.status !== "OPEN") {
+    return {
+      actionLabel: "查看",
+      dateLabel: formatDate(assignment.task.startsAt),
+      statusLabel: "任务未开放",
+      tone: "neutral",
+    };
+  }
+
+  if (assignment.task.startsAt && assignment.task.startsAt > now) {
+    return {
+      actionLabel: "查看",
+      dateLabel: formatDate(assignment.task.startsAt),
+      statusLabel: "未开始",
+      tone: "info",
+    };
+  }
+
+  if (assignment.task.endsAt && assignment.task.endsAt < now) {
+    return {
+      actionLabel: "查看",
+      dateLabel: formatDate(assignment.task.endsAt),
+      statusLabel: "已截止",
+      tone: "danger",
+    };
+  }
+
+  return {
+    actionLabel: assignment.status === "IN_PROGRESS" ? "继续填写" : "填写",
+    dateLabel: formatDate(assignment.task.endsAt),
+    statusLabel: assignment.status === "IN_PROGRESS" ? "填写中" : "待填写",
+    tone: "warning",
+  };
+}
+
 function EvaluationTable({
   assignments,
   emptyText,
@@ -144,25 +201,16 @@ function EvaluationTable({
   mode: "pending" | "completed";
 }) {
   const rows = assignments.map((assignment) => {
-    const statusLabel =
-      mode === "completed"
-        ? "已提交"
-        : assignment.response?.status === "DRAFT"
-          ? "草稿"
-          : "待填写";
-    const dateLabel =
-      mode === "completed"
-        ? formatDate(assignment.response?.submittedAt ?? null)
-        : formatDate(assignment.task.endsAt);
+    const listState = getAssignmentListState(assignment, mode);
 
-    return { assignment, dateLabel, statusLabel };
+    return { assignment, listState };
   });
 
   return (
     <>
       <div className="space-y-3 md:hidden">
         {rows.length ? (
-          rows.map(({ assignment, dateLabel, statusLabel }) => (
+          rows.map(({ assignment, listState }) => (
             <article
               key={assignment.id}
               className="rounded-md border border-slate-200 bg-white p-4 shadow-sm"
@@ -177,8 +225,8 @@ function EvaluationTable({
                     {assignment.teachingClass.name}
                   </p>
                 </div>
-                <StatusBadge tone={mode === "completed" ? "success" : "warning"}>
-                  {statusLabel}
+                <StatusBadge tone={listState.tone}>
+                  {listState.statusLabel}
                 </StatusBadge>
               </div>
               <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
@@ -190,9 +238,9 @@ function EvaluationTable({
                 </div>
                 <div className="rounded-md bg-slate-50 p-3">
                   <dt className="text-xs font-medium text-slate-500">
-                    {mode === "completed" ? "提交日期" : "截止日期"}
+                    {mode === "completed" ? "提交日期" : "关键日期"}
                   </dt>
-                  <dd className="mt-1 text-slate-900">{dateLabel}</dd>
+                  <dd className="mt-1 text-slate-900">{listState.dateLabel}</dd>
                 </div>
               </dl>
               <div className="mt-3 rounded-md bg-slate-50 p-3 text-sm text-slate-600">
@@ -207,7 +255,7 @@ function EvaluationTable({
                 href={`/student/evaluations/${assignment.id}`}
                 className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-medium text-white"
               >
-                {mode === "completed" ? "查看详情" : "填写评教"}
+                {listState.actionLabel}
               </Link>
             </article>
           ))
@@ -244,7 +292,7 @@ function EvaluationTable({
         </thead>
         <tbody className="divide-y divide-slate-100 bg-white">
           {rows.length ? (
-            rows.map(({ assignment, dateLabel, statusLabel }) => (
+            rows.map(({ assignment, listState }) => (
               <tr key={assignment.id}>
                 <td className="px-4 py-4 text-sm text-slate-900">
                   <div className="font-medium">
@@ -265,21 +313,19 @@ function EvaluationTable({
                   </div>
                 </td>
                 <td className="px-4 py-4 text-sm">
-                  <StatusBadge
-                    tone={mode === "completed" ? "success" : "warning"}
-                  >
-                    {statusLabel}
+                  <StatusBadge tone={listState.tone}>
+                    {listState.statusLabel}
                   </StatusBadge>
                 </td>
                 <td className="px-4 py-4 text-sm text-slate-600">
-                  {dateLabel}
+                  {listState.dateLabel}
                 </td>
                 <td className="px-4 py-4 text-right text-sm">
                   <Link
                     href={`/student/evaluations/${assignment.id}`}
                     className="font-medium text-sky-700 transition hover:text-sky-900"
                   >
-                    {mode === "completed" ? "查看" : "填写"}
+                    {listState.actionLabel}
                   </Link>
                 </td>
               </tr>
