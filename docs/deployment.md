@@ -244,3 +244,24 @@ docker volume rm <redis_volume_name>
 ```
 
 不要删除 PostgreSQL 卷。
+
+
+是 VPS 下载 npm 官方源太慢/解析失败导致的
+git pull
+docker compose --env-file .env.production -f docker-compose.prod.yml build --no-cache \
+  --build-arg NPM_REGISTRY=https://registry.npmmirror.com \
+  app
+
+构建成功再执行以下命令
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d postgres redis
+
+docker compose --env-file .env.production -f docker-compose.prod.yml run --rm app ./node_modules/.bin/prisma migrate deploy
+
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d app
+
+
+以后正常更新时不要频繁用 --no-cache，否则每次都会重新下载全部 npm 包。通常用：
+
+docker compose --env-file .env.production -f docker-compose.prod.yml build app
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d app
+只有 Dockerfile 或依赖异常时再用 --no-cache

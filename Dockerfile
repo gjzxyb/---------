@@ -1,4 +1,4 @@
-FROM node:22-alpine AS deps
+FROM node:22-bookworm-slim AS deps
 
 WORKDIR /app
 
@@ -13,9 +13,11 @@ ENV NPM_CONFIG_AUDIT=false \
     NPM_CONFIG_UPDATE_NOTIFIER=false
 
 COPY package.json package-lock.json ./
-RUN npm ci --no-audit --no-fund --registry=${NPM_REGISTRY} && npm cache clean --force
+RUN npm install -g npm@10.9.2 --registry=${NPM_REGISTRY} \
+    && npm ci --no-audit --no-fund --registry=${NPM_REGISTRY} \
+    && npm cache clean --force
 
-FROM node:22-alpine AS builder
+FROM node:22-bookworm-slim AS builder
 
 WORKDIR /app
 
@@ -30,7 +32,7 @@ COPY . .
 RUN ./node_modules/.bin/prisma generate
 RUN ./node_modules/.bin/next build
 
-FROM node:22-alpine AS runner
+FROM node:22-bookworm-slim AS runner
 
 WORKDIR /app
 
