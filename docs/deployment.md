@@ -60,6 +60,14 @@ docker compose --env-file .env.production -f docker-compose.prod.yml up -d --bui
 docker compose --env-file .env.production -f docker-compose.prod.yml run --rm app npx prisma migrate deploy
 docker compose --env-file .env.production -f docker-compose.prod.yml up -d app
 ```
+生产环境
+git pull
+docker compose --env-file .env.production -f docker-compose.prod.yml build --no-cache app
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d postgres redis
+docker compose --env-file .env.production -f docker-compose.prod.yml run --rm app ./node_modules/.bin/prisma migrate deploy
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d app
+
+
 
 5. 创建超级管理员：
 

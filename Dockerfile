@@ -2,17 +2,18 @@ FROM node:22-alpine AS deps
 
 WORKDIR /app
 
+ARG NPM_REGISTRY=https://registry.npmmirror.com
+
 ENV NPM_CONFIG_AUDIT=false \
     NPM_CONFIG_FETCH_RETRIES=5 \
     NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT=120000 \
     NPM_CONFIG_FETCH_RETRY_MINTIMEOUT=20000 \
     NPM_CONFIG_FUND=false \
+    NPM_CONFIG_REGISTRY=${NPM_REGISTRY} \
     NPM_CONFIG_UPDATE_NOTIFIER=false
 
-RUN npm install -g npm@10.9.2
-
 COPY package.json package-lock.json ./
-RUN npm ci --no-audit --no-fund --prefer-online && npm cache clean --force
+RUN npm ci --no-audit --no-fund --registry=${NPM_REGISTRY} && npm cache clean --force
 
 FROM node:22-alpine AS builder
 
