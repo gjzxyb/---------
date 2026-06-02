@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.7
+
 FROM node:22-bookworm-slim AS deps
 
 WORKDIR /app
@@ -5,17 +7,21 @@ WORKDIR /app
 ARG NPM_REGISTRY=https://registry.npmmirror.com
 
 ENV NPM_CONFIG_AUDIT=false \
+    NPM_CONFIG_CACHE=/root/.npm \
     NPM_CONFIG_FETCH_RETRIES=5 \
-    NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT=120000 \
-    NPM_CONFIG_FETCH_RETRY_MINTIMEOUT=20000 \
+    NPM_CONFIG_FETCH_RETRY_FACTOR=2 \
+    NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT=300000 \
+    NPM_CONFIG_FETCH_RETRY_MINTIMEOUT=30000 \
+    NPM_CONFIG_FETCH_TIMEOUT=600000 \
     NPM_CONFIG_FUND=false \
     NPM_CONFIG_REGISTRY=${NPM_REGISTRY} \
     NPM_CONFIG_UPDATE_NOTIFIER=false
 
 COPY package.json package-lock.json ./
-RUN npm install -g npm@10.9.2 --registry=${NPM_REGISTRY} \
-    && npm ci --no-audit --no-fund --registry=${NPM_REGISTRY} \
-    && npm cache clean --force
+RUN --mount=type=cache,target=/root/.npm \
+    npm install -g npm@10.9.2 --registry=${NPM_REGISTRY}
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --no-audit --no-fund --prefer-offline --registry=${NPM_REGISTRY}
 
 FROM node:22-bookworm-slim AS builder
 
