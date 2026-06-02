@@ -2,8 +2,17 @@ FROM node:22-alpine AS deps
 
 WORKDIR /app
 
+ENV NPM_CONFIG_AUDIT=false \
+    NPM_CONFIG_FETCH_RETRIES=5 \
+    NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT=120000 \
+    NPM_CONFIG_FETCH_RETRY_MINTIMEOUT=20000 \
+    NPM_CONFIG_FUND=false \
+    NPM_CONFIG_UPDATE_NOTIFIER=false
+
+RUN npm install -g npm@10.9.2
+
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci --no-audit --no-fund --prefer-online && npm cache clean --force
 
 FROM node:22-alpine AS builder
 
@@ -17,8 +26,8 @@ ENV NEXTAUTH_SECRET="build-time-placeholder-change-in-production"
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-RUN npx prisma generate
-RUN npm run build
+RUN ./node_modules/.bin/prisma generate
+RUN ./node_modules/.bin/next build
 
 FROM node:22-alpine AS runner
 
@@ -40,4 +49,4 @@ COPY --from=builder /app/scripts ./scripts
 
 EXPOSE 3000
 
-CMD ["npm", "run", "start"]
+CMD ["node", "node_modules/next/dist/bin/next", "start"]
