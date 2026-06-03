@@ -259,6 +259,26 @@ function resolveOrganization(
   return { key: fallbackKey, label: fallbackLabel };
 }
 
+function resolveDepartmentReportOrganization(assignment: ReportAssignment) {
+  const matchedDepartment = findOrganizationByType(
+    assignment.teachingClass.organization,
+    "DEPARTMENT",
+  );
+
+  if (matchedDepartment) {
+    return { key: matchedDepartment.id, label: matchedDepartment.name };
+  }
+
+  if (assignment.teachingClass.organization) {
+    return {
+      key: assignment.teachingClass.organization.id,
+      label: assignment.teachingClass.organization.name,
+    };
+  }
+
+  return { key: "unknown-department", label: "未归属组织" };
+}
+
 function getBucket(buckets: Map<string, ReportBucket>, key: string, label: string) {
   const bucket =
     buckets.get(key) ??
@@ -512,12 +532,7 @@ function buildAggregates(
       "unknown-school",
       "未归属学校",
     );
-    const department = resolveOrganization(
-      assignment,
-      "DEPARTMENT",
-      "unknown-department",
-      "未归属院系",
-    );
+    const department = resolveDepartmentReportOrganization(assignment);
 
     addAssignmentToBucket(schools, school.key, school.label, assignment);
     addAssignmentToBucket(departments, department.key, department.label, assignment);
@@ -549,12 +564,7 @@ function buildAggregates(
       "unknown-school",
       "未归属学校",
     );
-    const department = resolveOrganization(
-      assignment,
-      "DEPARTMENT",
-      "unknown-department",
-      "未归属院系",
-    );
+    const department = resolveDepartmentReportOrganization(assignment);
 
     addResponseScoresToBucket(schools, school.key, school.label, response);
     addResponseScoresToBucket(departments, department.key, department.label, response);
