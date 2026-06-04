@@ -13,6 +13,7 @@ export const defaultAdminSettings: AdminSettings = {
   dictionaryParametersText:
     "题型=SCALE / TEXT\n任务状态=DRAFT / OPEN / CLOSED / ARCHIVED\n派发状态=PENDING / IN_PROGRESS / SUBMITTED / EXPIRED\n组织类型=SCHOOL / DEPARTMENT / CLASS",
   exportWatermark: true,
+  requireFirstLoginPasswordChange: false,
   academicSystemEndpoint: "",
   interfaceNote: "预留统一认证、教务系统、LMS 和消息平台接口配置。",
   lmsEndpoint: "",

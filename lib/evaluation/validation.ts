@@ -243,6 +243,7 @@ export const adminSettingsSchema = z.object({
   dataIsolation: checkboxField.default(false),
   dictionaryParametersText: requiredString,
   exportWatermark: checkboxField.default(false),
+  requireFirstLoginPasswordChange: checkboxField.default(false),
   academicSystemEndpoint: optionalStringField,
   lmsEndpoint: optionalStringField,
   messageWebhook: optionalStringField,

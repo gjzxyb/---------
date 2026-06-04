@@ -104,6 +104,15 @@ export default async function ProfilePage() {
         </p>
       </div>
 
+      {session.user.mustChangePassword ? (
+        <section className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
+          <p className="font-semibold">首次登录需要修改密码</p>
+          <p className="mt-1">
+            请在下方“修改密码”中设置符合复杂度要求的新密码，成功后即可继续使用系统其他功能。
+          </p>
+        </section>
+      ) : null}
+
       <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 px-5 py-4">
           <h2 className="text-base font-semibold text-slate-950">基本信息</h2>

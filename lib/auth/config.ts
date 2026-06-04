@@ -3,6 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 
 import { prisma } from "@/lib/db";
 import { UserStatus } from "@/lib/generated/prisma/enums";
+import { loadAdminSettings } from "@/lib/admin/settings-store";
 import { verifyPassword } from "@/lib/auth/password";
 import {
   isLoginLimited,
@@ -43,6 +44,7 @@ export const authOptions: NextAuthOptions = {
             name: true,
             email: true,
             passwordHash: true,
+            mustChangePassword: true,
             role: true,
             status: true,
             organizationId: true,
@@ -67,6 +69,7 @@ export const authOptions: NextAuthOptions = {
           id: user.id,
           name: user.name,
           email: user.email,
+          mustChangePassword: user.mustChangePassword,
           role: user.role,
           organizationId: user.organizationId,
         };
@@ -79,6 +82,7 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
         token.name = user.name;
         token.email = user.email;
+        token.mustChangePassword = user.mustChangePassword;
         token.role = user.role;
         token.organizationId = user.organizationId;
       }
@@ -87,9 +91,22 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (session.user) {
+        const [settings, currentUser] = await Promise.all([
+          loadAdminSettings(),
+          token.id
+            ? prisma.user.findUnique({
+                where: { id: token.id },
+                select: { mustChangePassword: true },
+              })
+            : null,
+        ]);
+
         session.user.id = token.id;
         session.user.name = token.name;
         session.user.email = token.email;
+        session.user.mustChangePassword =
+          settings.requireFirstLoginPasswordChange &&
+          (currentUser?.mustChangePassword ?? token.mustChangePassword ?? false);
         session.user.role = token.role;
         session.user.organizationId = token.organizationId;
       }

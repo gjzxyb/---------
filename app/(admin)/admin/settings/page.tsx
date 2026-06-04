@@ -508,6 +508,26 @@ export default async function AdminSettingsPage({
         </section>
 
         <section>
+          <h2 className="text-base font-semibold text-slate-950">安全设置</h2>
+          <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
+            <label className="flex items-start gap-3 text-sm font-medium text-slate-700">
+              <input
+                name="requireFirstLoginPasswordChange"
+                type="checkbox"
+                defaultChecked={settings.requireFirstLoginPasswordChange}
+                className="mt-0.5 size-4 rounded border-slate-300"
+              />
+              <span>
+                <span className="block text-slate-900">首次登录必须修改密码</span>
+                <span className="mt-1 block text-sm font-normal leading-6 text-slate-600">
+                  开启后，仍处于初始密码状态的用户登录后会被引导到个人资料页先修改密码；修改成功后自动解除限制。
+                </span>
+              </span>
+            </label>
+          </div>
+        </section>
+
+        <section>
           <h2 className="text-base font-semibold text-slate-950">接口配置</h2>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <label className="grid gap-1 text-sm font-medium text-slate-700">
@@ -578,6 +598,7 @@ export default async function AdminSettingsPage({
               ["文本反馈脱敏", settings.textDesensitization ? "启用" : "停用", "开放意见查看前执行脱敏策略"],
               ["院系数据隔离", settings.dataIsolation ? "启用" : "停用", "院系管理员仅看本院系数据"],
               ["导出水印", settings.exportWatermark ? "启用" : "停用", "导出报表附加账号和时间水印"],
+              ["首次登录改密", settings.requireFirstLoginPasswordChange ? "启用" : "停用", "初始密码账号登录后需先修改密码"],
               ["结果发布", resultReleaseLabels[settings.resultReleaseMode], "控制教师端结果开放节奏"],
             ]}
           />

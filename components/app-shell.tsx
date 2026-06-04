@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect } from "react";
 import type { Session } from "next-auth";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 
 import { Nav } from "@/components/nav";
@@ -28,6 +30,15 @@ const roleLabels: Record<Role, string> = {
 
 export function AppShell({ children, navigation, session }: AppShellProps) {
   const user = session.user;
+  const pathname = usePathname();
+  const router = useRouter();
+  const passwordChangeRequired = user.mustChangePassword;
+
+  useEffect(() => {
+    if (passwordChangeRequired && pathname !== "/profile") {
+      router.replace("/profile?forcePasswordChange=1");
+    }
+  }, [passwordChangeRequired, pathname, router]);
 
   return (
     <div className="app-shell flex min-h-screen bg-slate-100 text-slate-950">
@@ -75,6 +86,11 @@ export function AppShell({ children, navigation, session }: AppShellProps) {
 
         <main className="flex-1 px-3 py-5 sm:px-6 sm:py-6 lg:px-8">
           <PageContextBar navigation={navigation} />
+          {passwordChangeRequired && pathname !== "/profile" ? (
+            <section className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+              为保障账号安全，请先修改初始密码。
+            </section>
+          ) : null}
           {children}
         </main>
       </div>

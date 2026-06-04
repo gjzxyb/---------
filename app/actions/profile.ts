@@ -136,7 +136,7 @@ export async function changeOwnPassword(
 
   await prisma.user.update({
     where: { id: session.user.id },
-    data: { passwordHash },
+    data: { mustChangePassword: false, passwordHash },
   });
   await createSafeAuditLog(prisma, {
     actorId: session.user.id,

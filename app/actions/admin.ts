@@ -411,6 +411,7 @@ export async function updateAdminSettings(formData: FormData) {
     dataIsolation: formData.get("dataIsolation"),
     dictionaryParametersText: String(formData.get("dictionaryParametersText") ?? ""),
     exportWatermark: formData.get("exportWatermark"),
+    requireFirstLoginPasswordChange: formData.get("requireFirstLoginPasswordChange"),
     academicSystemEndpoint: String(formData.get("academicSystemEndpoint") ?? ""),
     textDesensitization: formData.get("textDesensitization"),
     lmsEndpoint: String(formData.get("lmsEndpoint") ?? ""),

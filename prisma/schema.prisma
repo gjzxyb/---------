@@ -64,6 +64,7 @@ model User {
   email             String                 @unique
   name              String
   passwordHash      String
+  mustChangePassword Boolean                @default(true)
   role              Role
   status            UserStatus             @default(ACTIVE)
   organizationId    String

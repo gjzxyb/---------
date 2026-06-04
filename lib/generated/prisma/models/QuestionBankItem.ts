@@ -439,10 +439,6 @@ export type NullableIntFieldUpdateOperationsInput = {
   divide?: number
 }
 
-export type BoolFieldUpdateOperationsInput = {
-  set?: boolean
-}
-
 export type QuestionBankItemCreateNestedOneWithoutTemplateQuestionsInput = {
   create?: Prisma.XOR<Prisma.QuestionBankItemCreateWithoutTemplateQuestionsInput, Prisma.QuestionBankItemUncheckedCreateWithoutTemplateQuestionsInput>
   connectOrCreate?: Prisma.QuestionBankItemCreateOrConnectWithoutTemplateQuestionsInput
