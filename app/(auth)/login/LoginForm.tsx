@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { PasswordField } from "@/components/password-field";
 
 const loginFailureMessage = "登录失败，请检查账号和密码";
 
@@ -66,12 +67,10 @@ export default function LoginForm() {
 
         <label className="block text-sm font-medium text-slate-200">
           密码
-          <input
-            type="password"
+          <PasswordField
             autoComplete="current-password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            required
             className="mt-2 block w-full rounded-md border border-white/15 bg-white/95 px-3 py-2 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-sky-300 focus:ring-2 focus:ring-sky-300/30"
           />
         </label>

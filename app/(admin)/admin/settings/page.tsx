@@ -37,6 +37,8 @@ const resultReleaseLabels: Record<string, string> = {
   IMMEDIATE: "任务结束后自动发布",
 };
 
+const USER_PERMISSION_LIST_LIMIT = 10;
+
 type RoleCount = {
   role: string;
   _count: { role: number };
@@ -193,7 +195,7 @@ async function loadSettingsData(
     prisma.user.findMany({
       include: { organization: { select: { id: true, name: true } } },
       orderBy: [{ role: "asc" }, { name: "asc" }, { email: "asc" }],
-      take: 80,
+      take: USER_PERMISSION_LIST_LIMIT,
       where: userWhere,
     }),
     prisma.user.count({ where: userWhere }),
@@ -423,7 +425,7 @@ export default async function AdminSettingsPage({
         </div>
 
         <div className="border-t border-slate-200 px-5 py-3 text-sm text-slate-600">
-          当前筛选共 {formatInteger(userTotalCount)} 个用户，列表最多展示前 80 个。
+          当前筛选共 {formatInteger(userTotalCount)} 个用户，列表最多展示前 {formatInteger(USER_PERMISSION_LIST_LIMIT)} 个。
         </div>
       </section>
 
