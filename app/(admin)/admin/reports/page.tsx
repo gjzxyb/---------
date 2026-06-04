@@ -241,6 +241,24 @@ function findOrganizationByType(
   return null;
 }
 
+function findTopOrganizationByType(
+  organization: ReportOrganization | null,
+  type: string,
+) {
+  let current: ReportOrganization | null | undefined = organization;
+  let matched: ReportOrganization | null = null;
+
+  while (current) {
+    if (current.type === type) {
+      matched = current;
+    }
+
+    current = current.parent;
+  }
+
+  return matched;
+}
+
 function resolveOrganization(
   assignment: ReportAssignment,
   type: string,
@@ -257,6 +275,19 @@ function resolveOrganization(
   }
 
   return { key: fallbackKey, label: fallbackLabel };
+}
+
+function resolveSchoolReportOrganization(assignment: ReportAssignment) {
+  const matchedSchool = findTopOrganizationByType(
+    assignment.teachingClass.organization,
+    "SCHOOL",
+  );
+
+  if (matchedSchool) {
+    return { key: matchedSchool.id, label: matchedSchool.name };
+  }
+
+  return { key: "unknown-school", label: "未归属学校" };
 }
 
 function resolveDepartmentReportOrganization(assignment: ReportAssignment) {
@@ -526,12 +557,7 @@ function buildAggregates(
   const classes = new Map<string, ReportBucket>();
 
   assignments.forEach((assignment) => {
-    const school = resolveOrganization(
-      assignment,
-      "SCHOOL",
-      "unknown-school",
-      "未归属学校",
-    );
+    const school = resolveSchoolReportOrganization(assignment);
     const department = resolveDepartmentReportOrganization(assignment);
 
     addAssignmentToBucket(schools, school.key, school.label, assignment);
@@ -558,12 +584,7 @@ function buildAggregates(
 
   responses.forEach((response) => {
     const assignment = response.assignment;
-    const school = resolveOrganization(
-      assignment,
-      "SCHOOL",
-      "unknown-school",
-      "未归属学校",
-    );
+    const school = resolveSchoolReportOrganization(assignment);
     const department = resolveDepartmentReportOrganization(assignment);
 
     addResponseScoresToBucket(schools, school.key, school.label, response);
