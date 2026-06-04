@@ -3,6 +3,7 @@ import { StatCard } from "@/components/stat-card";
 import { StatusBadge } from "@/components/status-badge";
 import Link from "next/link";
 import { requireRole } from "@/lib/auth/guards";
+import { flattenOrganizationTree } from "@/lib/base-data/organization-tree";
 import {
   ADMIN_ROLES,
   emptyWhenDatabaseMissing,
@@ -13,6 +14,7 @@ import {
 type OrganizationRow = {
   id: string;
   name: string;
+  parentId: string | null;
   type: string;
   parent: { name: string } | null;
   _count: { users: number; courses: number; classes: number };
@@ -311,8 +313,9 @@ export default async function AdminBaseDataPage({
     enrollmentCount,
     isDatabaseConfigured,
   } = await loadBaseData();
+  const organizationTreeRows = flattenOrganizationTree(organizations);
   const organizationPage = paginateItems(
-    organizations,
+    organizationTreeRows,
     rawSearchParams,
     "organizationPage",
   );
@@ -372,7 +375,14 @@ export default async function AdminBaseDataPage({
             headers={["名称", "类型", "上级", "用户/课程/班级"]}
             emptyText="暂无组织数据。"
             rows={organizationPage.items.map((organization) => [
-              organization.name,
+              <div
+                key={organization.id}
+                className="font-medium text-slate-900"
+                style={{ paddingLeft: `${organization.depth * 20}px` }}
+              >
+                {organization.depth > 0 ? "└ " : ""}
+                {organization.name}
+              </div>,
               orgTypeLabel(organization.type),
               organization.parent?.name ?? "顶级组织",
               `${organization._count.users} / ${organization._count.courses} / ${organization._count.classes}`,
