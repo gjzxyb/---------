@@ -291,7 +291,7 @@ export function TemplateQuestionEditor({
                   <td className="px-3 py-2">
                     <input
                       type="number"
-                      min={1}
+                      min={0}
                       value={question.maxScore ?? ""}
                       onChange={(event) =>
                         updateQuestion(question.localId, {

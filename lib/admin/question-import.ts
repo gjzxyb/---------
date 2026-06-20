@@ -100,7 +100,7 @@ export function parseQuestionCsv(content: string): ImportedTemplateQuestion[] {
           ? sortOrderValue
           : lineIndex + 1,
         title,
-        maxScore: Number.isFinite(scoreValue) && scoreValue > 0 ? scoreValue : null,
+        maxScore: Number.isFinite(scoreValue) && scoreValue >= 0 ? scoreValue : null,
         type: normalizeQuestionType(cells[indexes["题型"]] ?? ""),
         optionsText: cells[indexes["选项串"]]?.trim() ?? "",
         required: true,

@@ -30,7 +30,7 @@ const optionalNumberField = z.preprocess((value) => {
   }
 
   return value;
-}, z.number().int().positive().optional().nullable());
+}, z.number().int().min(0).optional().nullable());
 
 const checkboxField = z.preprocess(
   (value) => value === true || value === "on" || value === "true",

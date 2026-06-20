@@ -13,8 +13,8 @@ export type ScaleOption = {
 
 export function getScaleOptions(maxScore: number | null | undefined) {
   const optionCount =
-    typeof maxScore === "number" && Number.isFinite(maxScore)
-      ? Math.min(Math.max(Math.trunc(maxScore), 1), SATISFACTION_LABELS.length)
+    typeof maxScore === "number" && Number.isFinite(maxScore) && maxScore > 0
+      ? Math.min(Math.trunc(maxScore), SATISFACTION_LABELS.length)
       : SATISFACTION_LABELS.length;
 
   return SATISFACTION_LABELS.slice(0, optionCount).map((label, index) => ({
