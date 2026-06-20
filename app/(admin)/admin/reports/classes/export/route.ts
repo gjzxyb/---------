@@ -13,6 +13,14 @@ import {
   roundMetric,
 } from "@/lib/demo-data";
 
+function scoreAnswerValue(score: number, maxScore: number | null | undefined) {
+  if (!(typeof maxScore === "number" && Number.isFinite(maxScore) && maxScore > 0)) {
+    return null;
+  }
+
+  return Math.min(score, maxScore);
+}
+
 function buildAssignmentWhere(query: ReturnType<typeof parseReportQuery>) {
   const filters = [];
 
@@ -71,7 +79,12 @@ export async function GET(request: Request) {
     include: {
       response: {
         include: {
-          answers: { select: { score: true } },
+          answers: {
+            select: {
+              question: { select: { maxScore: true } },
+              score: true,
+            },
+          },
         },
       },
       teachingClass: {
@@ -96,6 +109,8 @@ export async function GET(request: Request) {
       organization: string;
       scoreCount: number;
       scoreTotal: number;
+      submittedScoreCount: number;
+      submittedScoreTotal: number;
       submitted: number;
       teacher: string;
       teachingClass: string;
@@ -113,6 +128,8 @@ export async function GET(request: Request) {
         organization: teachingClass.organization?.name ?? "未归属",
         scoreCount: 0,
         scoreTotal: 0,
+        submittedScoreCount: 0,
+        submittedScoreTotal: 0,
         submitted: 0,
         teacher: teachingClass.teacher.name,
         teachingClass: teachingClass.name,
@@ -125,21 +142,37 @@ export async function GET(request: Request) {
       bucket.submitted += 1;
     }
 
+    let responseScore = 0;
+    let responseScoreCount = 0;
+
     assignment.response?.answers.forEach((answer) => {
       if (assignment.response?.status === "SUBMITTED" && answer.score !== null) {
+        const score = scoreAnswerValue(answer.score, answer.question.maxScore);
+
+        if (score === null) {
+          return;
+        }
+
         bucket.scoreCount += 1;
-        bucket.scoreTotal += answer.score;
+        bucket.scoreTotal += score;
+        responseScore += score;
+        responseScoreCount += 1;
       }
     });
+
+    if (assignment.response?.status === "SUBMITTED" && responseScoreCount > 0) {
+      bucket.submittedScoreCount += 1;
+      bucket.submittedScoreTotal += responseScore;
+    }
 
     buckets.set(teachingClass.id, bucket);
   });
 
   const rows = Array.from(buckets.values()).map((bucket) => {
     const average =
-      bucket.submitted < SMALL_SAMPLE_THRESHOLD || bucket.scoreCount === 0
+      bucket.submitted < SMALL_SAMPLE_THRESHOLD || bucket.submittedScoreCount === 0
         ? "小样本隐藏"
-        : roundMetric(bucket.scoreTotal / bucket.scoreCount);
+        : roundMetric(bucket.submittedScoreTotal / bucket.submittedScoreCount);
 
     return [
       bucket.term,
@@ -170,7 +203,7 @@ export async function GET(request: Request) {
         "已提交",
         "派发数",
         "回收率",
-        "平均分",
+        "生均得分",
         "状态",
       ],
       rows,

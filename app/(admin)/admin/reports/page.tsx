@@ -82,6 +82,7 @@ type ReportBucket = {
   submittedScoreCount: number;
   submittedScoreTotal: number;
   submitted: number;
+  teacherName?: string;
 };
 
 type ReportData = {
@@ -259,24 +260,6 @@ function findTopOrganizationByType(
   return matched;
 }
 
-function resolveOrganization(
-  assignment: ReportAssignment,
-  type: string,
-  fallbackKey: string,
-  fallbackLabel: string,
-) {
-  const matchedOrganization = findOrganizationByType(
-    assignment.teachingClass.organization,
-    type,
-  );
-
-  if (matchedOrganization) {
-    return { key: matchedOrganization.id, label: matchedOrganization.name };
-  }
-
-  return { key: fallbackKey, label: fallbackLabel };
-}
-
 function resolveSchoolReportOrganization(assignment: ReportAssignment) {
   const matchedSchool = findTopOrganizationByType(
     assignment.teachingClass.organization,
@@ -342,15 +325,16 @@ function addAssignmentToBucket(
   if (countSubmitted([assignment]) > 0) {
     bucket.submitted += 1;
   }
+
+  return bucket;
 }
 
 function scoreAnswerValue(score: number, maxScore: number | null | undefined) {
-  const effectiveMaxScore =
-    typeof maxScore === "number" && Number.isFinite(maxScore) && maxScore > 0
-      ? maxScore
-      : 5;
+  if (!(typeof maxScore === "number" && Number.isFinite(maxScore) && maxScore > 0)) {
+    return null;
+  }
 
-  return Math.min(score, effectiveMaxScore);
+  return Math.min(score, maxScore);
 }
 
 function addResponseScoresToBucket(
@@ -367,6 +351,10 @@ function addResponseScoresToBucket(
     if (answer.score !== null) {
       const score = scoreAnswerValue(answer.score, answer.question.maxScore);
 
+      if (score === null) {
+        return;
+      }
+
       bucket.scoreCount += 1;
       bucket.scoreTotal += score;
       responseScore += score;
@@ -378,6 +366,8 @@ function addResponseScoresToBucket(
     bucket.submittedScoreCount += 1;
     bucket.submittedScoreTotal += responseScore;
   }
+
+  return bucket;
 }
 
 function participantAverageScore(aggregate: ReportBucket) {
@@ -390,7 +380,7 @@ function responseEffectiveScore(response: ReportResponse) {
   const scores = response.answers.flatMap((answer) =>
     answer.score === null
       ? []
-      : [scoreAnswerValue(answer.score, answer.question.maxScore)],
+      : scoreAnswerValue(answer.score, answer.question.maxScore) ?? [],
   );
 
   return scores.length === 0
@@ -475,6 +465,7 @@ function classBucketRows(
       >
         {aggregate.label}
       </Link>,
+      aggregate.teacherName ?? "未指定",
       `${formatInteger(aggregate.submitted)} / ${formatInteger(aggregate.assigned)}`,
       formatPercent(aggregate.responseRate),
       sampleHidden ? "小样本隐藏" : aggregate.average,
@@ -579,7 +570,7 @@ function buildAggregates(
       assignment.teachingClass.id,
       `${assignment.teachingClass.name} · ${assignment.teachingClass.term}`,
       assignment,
-    );
+    ).teacherName = assignment.teachingClass.teacher.name;
   });
 
   responses.forEach((response) => {
@@ -606,7 +597,7 @@ function buildAggregates(
       assignment.teachingClass.id,
       `${assignment.teachingClass.name} · ${assignment.teachingClass.term}`,
       response,
-    );
+    ).teacherName = assignment.teachingClass.teacher.name;
   });
 
   return {
@@ -639,6 +630,11 @@ function buildQuestionSummaries(responses: ReportResponse[]) {
 
       if (answer.score !== null) {
         const score = scoreAnswerValue(answer.score, answer.question.maxScore);
+
+        if (score === null) {
+          questions.set(answer.question.id, summary);
+          return;
+        }
 
         summary.count += 1;
         summary.scoreTotal += score;
@@ -911,7 +907,7 @@ export default async function AdminReportsPage({
     response.answers.flatMap((answer) =>
       answer.score === null
         ? []
-        : [scoreAnswerValue(answer.score, answer.question.maxScore)],
+        : scoreAnswerValue(answer.score, answer.question.maxScore) ?? [],
     ),
   );
   const responseScores = responses.flatMap((response) => {
@@ -1096,7 +1092,7 @@ export default async function AdminReportsPage({
             导出教学班 Excel
           </Link>
         </div>
-        <DataTable headers={["教学班", "提交/派发", "回收率", "生均得分", "状态"]} emptyText="暂无教学班汇总。" rows={classBucketRows(classPage.items, query)} />
+        <DataTable headers={["教学班", "教师", "提交/派发", "回收率", "生均得分", "状态"]} emptyText="暂无教学班汇总。" rows={classBucketRows(classPage.items, query)} />
         <PaginationControls label="教学班" page={classPage} pageKey="classPage" searchParams={rawSearchParams} />
         <p className="text-xs text-slate-500">
           点击教学班名称可查看该班所有学生的评教明细。
