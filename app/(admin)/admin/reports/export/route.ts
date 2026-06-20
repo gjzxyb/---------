@@ -1,6 +1,13 @@
 import { buildCsv, parseReportQuery } from "@/lib/admin/reports";
 import { requireRole } from "@/lib/auth/guards";
-import { ADMIN_REPORT_ROLES, isDatabaseConfigured, roundMetric } from "@/lib/demo-data";
+import {
+  ADMIN_REPORT_ROLES,
+  assignmentResponseRate,
+  countSubmitted,
+  formatPercent,
+  isDatabaseConfigured,
+} from "@/lib/demo-data";
+import { averageResponseScore, responseScoreTotal } from "@/lib/evaluation/scoring";
 
 function buildAssignmentWhere(query: ReturnType<typeof parseReportQuery>) {
   const filters = [];
@@ -19,6 +26,20 @@ function buildAssignmentWhere(query: ReturnType<typeof parseReportQuery>) {
 
   if (query.teacherId) {
     filters.push({ teachingClass: { is: { teacherId: query.teacherId } } });
+  }
+
+  if (query.teacherName) {
+    filters.push({
+      teachingClass: {
+        is: {
+          teacher: {
+            is: {
+              name: { contains: query.teacherName },
+            },
+          },
+        },
+      },
+    });
   }
 
   if (query.organizationId) {
@@ -45,51 +66,114 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const query = parseReportQuery(Object.fromEntries(url.searchParams.entries()));
   const { prisma } = await import("@/lib/db");
-  const responses = await prisma.evaluationResponse.findMany({
+  const assignments = await prisma.evaluationAssignment.findMany({
     include: {
-      answers: { select: { score: true, text: true } },
-      assignment: {
+      response: {
         include: {
-          task: { select: { name: true, term: true } },
-          teachingClass: {
-            include: {
-              course: { select: { code: true, name: true } },
-              organization: { select: { name: true } },
-              teacher: { select: { name: true } },
+          answers: {
+            select: {
+              question: { select: { maxScore: true } },
+              score: true,
+              text: true,
             },
           },
         },
       },
+      task: { select: { id: true, name: true, term: true } },
+      teachingClass: {
+        include: {
+          course: { select: { code: true, name: true } },
+          organization: { select: { name: true } },
+          teacher: { select: { name: true } },
+        },
+      },
     },
-    orderBy: { submittedAt: "desc" },
-    where: {
-      assignment: { is: buildAssignmentWhere(query) },
-      status: "SUBMITTED",
-    },
+    orderBy: [
+      { task: { term: "desc" } },
+      { task: { name: "asc" } },
+      { teachingClass: { name: "asc" } },
+    ],
+    where: buildAssignmentWhere(query),
   });
-  const rows = responses.map((response) => {
-    const scores = response.answers.flatMap((answer) =>
-      answer.score === null ? [] : [answer.score],
-    );
-    const average =
-      scores.length === 0
-        ? ""
-        : roundMetric(scores.reduce((total, score) => total + score, 0) / scores.length);
+  const buckets = new Map<
+    string,
+    {
+      assigned: number;
+      courseCode: string;
+      courseName: string;
+      organization: string;
+      responseScores: number[];
+      submitted: number;
+      taskName: string;
+      teacherName: string;
+      teachingClass: string;
+      term: string;
+      textCount: number;
+    }
+  >();
 
-    return [
-      response.assignment.task.term,
-      response.assignment.task.name,
-      response.assignment.teachingClass.course.name,
-      response.assignment.teachingClass.course.code,
-      response.assignment.teachingClass.name,
-      response.assignment.teachingClass.teacher.name,
-      response.assignment.teachingClass.organization?.name ?? "未归属",
-      response.submittedAt?.toISOString() ?? "",
-      scores.length,
-      average,
-      response.answers.filter((answer) => answer.text?.trim()).length,
-    ];
+  assignments.forEach((assignment) => {
+    const teachingClass = assignment.teachingClass;
+    const key = `${assignment.task.id}:${teachingClass.id}`;
+    const bucket =
+      buckets.get(key) ??
+      ({
+        assigned: 0,
+        courseCode: teachingClass.course.code,
+        courseName: teachingClass.course.name,
+        organization: teachingClass.organization?.name ?? "未归属",
+        responseScores: [],
+        submitted: 0,
+        taskName: assignment.task.name,
+        teacherName: teachingClass.teacher.name,
+        teachingClass: teachingClass.name,
+        term: assignment.task.term || teachingClass.term,
+        textCount: 0,
+      });
+
+    bucket.assigned += 1;
+
+    if (countSubmitted([assignment]) > 0) {
+      bucket.submitted += 1;
+    }
+
+    if (assignment.response?.status === "SUBMITTED") {
+      const scoreSummary = responseScoreTotal(assignment.response.answers);
+
+      if (scoreSummary !== null) {
+        bucket.responseScores.push(scoreSummary.total);
+      }
+
+      bucket.textCount += assignment.response.answers.filter((answer) =>
+        answer.text?.trim(),
+      ).length;
+    }
+
+    buckets.set(key, bucket);
   });
+  const rows = Array.from(buckets.values()).map((bucket) => [
+    bucket.term,
+    bucket.taskName,
+    bucket.courseName,
+    bucket.courseCode,
+    bucket.teachingClass,
+    bucket.teacherName,
+    bucket.organization,
+    bucket.submitted,
+    bucket.assigned,
+    formatPercent(
+      assignmentResponseRate(
+        Array.from({ length: bucket.assigned }, (_, index) => ({
+          status: index < bucket.submitted ? "SUBMITTED" : "PENDING",
+        })),
+      ),
+    ),
+    bucket.responseScores.length,
+    bucket.responseScores.length === 0
+      ? ""
+      : averageResponseScore(bucket.responseScores),
+    bucket.textCount,
+  ]);
   const csv = buildCsv(
     [
       "学期",
@@ -99,9 +183,11 @@ export async function GET(request: Request) {
       "教学班",
       "教师",
       "组织",
-      "提交时间",
-      "计分答案数",
-      "平均分",
+      "已提交",
+      "派发数",
+      "回收率",
+      "计分答卷数",
+      "生均得分",
       "文本意见数",
     ],
     rows,

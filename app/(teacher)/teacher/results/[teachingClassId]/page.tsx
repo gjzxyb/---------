@@ -11,9 +11,13 @@ import {
   stableCachePart,
 } from "@/lib/cache/app-cache";
 import {
-  averageScore,
   summarizeQuestionScores,
 } from "@/lib/evaluation/aggregate";
+import {
+  averageResponseScore,
+  responseScoreTotal,
+  scoreAnswerValue,
+} from "@/lib/evaluation/scoring";
 import { maskSensitiveText } from "@/lib/admin/reports";
 
 const MIN_SAMPLE_SIZE = 3;
@@ -103,6 +107,7 @@ async function loadFreshResultDetail(
             question: {
               select: {
                 id: true,
+                maxScore: true,
                 sortOrder: true,
                 title: true,
               },
@@ -119,12 +124,26 @@ async function loadFreshResultDetail(
     }),
   ]);
   const scoreAnswers = responses.flatMap((response) =>
-    response.answers.flatMap((answer) =>
-      answer.score === null
+    response.answers.flatMap((answer) => {
+      if (answer.score === null) {
+        return [];
+      }
+
+      const score = scoreAnswerValue(answer.score, answer.question.maxScore);
+
+      return score === null
         ? []
-        : [{ questionId: answer.question.id, score: answer.score }],
-    ),
+        : [{
+            questionId: answer.question.id,
+            score,
+          }];
+    }),
   );
+  const responseScores = responses.flatMap((response) => {
+    const scoreSummary = responseScoreTotal(response.answers);
+
+    return scoreSummary === null ? [] : [scoreSummary.total];
+  });
   const questionTitles = new Map(
     responses.flatMap((response) =>
       response.answers.map((answer) => [
@@ -166,7 +185,7 @@ async function loadFreshResultDetail(
   return {
     ...teachingClass,
     anonymousSuggestions,
-    averageScore: averageScore(scoreAnswers.map((answer) => answer.score)),
+    averageScore: averageResponseScore(responseScores),
     distribution,
     improvementPlans,
     questionSummaries,
@@ -266,9 +285,9 @@ export default async function TeacherResultDetailPage({
           hint="仅统计提交状态"
         />
         <StatCard
-          label="平均分"
+          label="生均得分"
           value={hasEnoughSamples ? teachingClass.averageScore : "-"}
-          hint={hasEnoughSamples ? "全部量表题平均" : "小样本隐藏"}
+          hint={hasEnoughSamples ? "答卷总分平均" : "小样本隐藏"}
         />
         <StatCard
           label="改进计划"

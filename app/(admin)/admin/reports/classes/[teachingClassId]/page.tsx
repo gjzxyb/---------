@@ -19,8 +19,8 @@ import {
   formatInteger,
   formatPercent,
   isDatabaseConfigured,
-  roundMetric,
 } from "@/lib/demo-data";
+import { averageResponseScore, responseScoreTotal } from "@/lib/evaluation/scoring";
 
 type ClassReportDetailParams = Promise<{ teachingClassId: string }>;
 type ClassReportDetailSearchParams = Promise<
@@ -53,7 +53,7 @@ type ClassReportDetail = {
       answers: {
         score: number | null;
         text: string | null;
-        question: { sortOrder: number; title: string; type: string };
+        question: { maxScore: number | null; sortOrder: number; title: string; type: string };
       }[];
     } | null;
   }[];
@@ -65,14 +65,6 @@ type ClassReportDetailRow = {
   assignment: ClassReportAssignment | null;
   student: ClassReportStudent;
 };
-
-function averageScore(scores: number[]) {
-  if (scores.length === 0) {
-    return "-";
-  }
-
-  return roundMetric(scores.reduce((sum, score) => sum + score, 0) / scores.length);
-}
 
 function scoreDetails(
   answers: NonNullable<ClassReportDetail["assignments"][number]["response"]>["answers"],
@@ -121,7 +113,7 @@ async function loadClassReportDetail(
               answers: {
                 include: {
                   question: {
-                    select: { sortOrder: true, title: true, type: true },
+                    select: { maxScore: true, sortOrder: true, title: true, type: true },
                   },
                 },
                 orderBy: { question: { sortOrder: "asc" } },
@@ -212,11 +204,15 @@ export default async function ClassReportDetailPage({
     }));
   });
   const submittedCount = countSubmitted(teachingClass.assignments);
-  const scoredAnswers = teachingClass.assignments.flatMap((assignment) =>
-    assignment.response?.answers.flatMap((answer) =>
-      answer.score === null ? [] : [answer.score],
-    ) ?? [],
-  );
+  const responseScores = teachingClass.assignments.flatMap((assignment) => {
+    if (assignment.response?.status !== "SUBMITTED") {
+      return [];
+    }
+
+    const scoreSummary = responseScoreTotal(assignment.response.answers);
+
+    return scoreSummary === null ? [] : [scoreSummary.total];
+  });
   const exportParams = buildReportSearchParams(
     {},
     {
@@ -256,20 +252,17 @@ export default async function ClassReportDetailPage({
         <StatCard label="选课学生" value={formatInteger(teachingClass.enrollments.length)} hint="该教学班选课名单" />
         <StatCard label="派发记录" value={formatInteger(teachingClass.assignments.length)} hint="当前筛选范围" />
         <StatCard label="提交率" value={formatPercent(teachingClass.assignments.length ? (submittedCount / teachingClass.assignments.length) * 100 : 0)} hint={`${formatInteger(submittedCount)} / ${formatInteger(teachingClass.assignments.length)} 已提交`} />
-        <StatCard label="平均分" value={averageScore(scoredAnswers)} hint="全部已提交量表题" />
+        <StatCard label="生均得分" value={averageResponseScore(responseScores)} hint="已提交答卷总分平均" />
       </section>
 
       <section className="space-y-3">
         <h2 className="text-base font-semibold text-slate-950">学生评教明细</h2>
         <DataTable
-          headers={["学生", "学号", "评价任务", "状态", "提交时间", "平均分", "评分明细", "文本意见"]}
+          headers={["学生", "学号", "评价任务", "状态", "提交时间", "答卷总分", "评分明细", "文本意见"]}
           emptyText="暂无学生评教数据。"
           rows={detailRows.map(({ assignment, student }) => {
             const response = assignment?.response;
-            const scores =
-              response?.answers.flatMap((answer) =>
-                answer.score === null ? [] : [answer.score],
-              ) ?? [];
+            const scoreSummary = response ? responseScoreTotal(response.answers) : null;
 
             return [
               <div key="student">
@@ -280,7 +273,7 @@ export default async function ClassReportDetailPage({
               assignment ? `${assignment.task.term} · ${assignment.task.name}` : "未派发",
               assignment ? assignmentStatusLabel(assignment.status) : "未派发",
               formatDateTime(response?.submittedAt ?? assignment?.submittedAt),
-              response?.status === "SUBMITTED" ? averageScore(scores) : "-",
+              response?.status === "SUBMITTED" ? scoreSummary?.total ?? "-" : "-",
               response?.status === "SUBMITTED" ? scoreDetails(response.answers) : "-",
               response?.status === "SUBMITTED" ? textDetails(response.answers) : "-",
             ];

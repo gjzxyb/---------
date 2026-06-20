@@ -9,18 +9,10 @@ import {
   assignmentStatusLabel,
   formatDateTime,
   isDatabaseConfigured,
-  roundMetric,
 } from "@/lib/demo-data";
+import { responseScoreTotal } from "@/lib/evaluation/scoring";
 
 type ClassReportDetailExportParams = Promise<{ teachingClassId: string }>;
-
-function averageScore(scores: number[]) {
-  if (scores.length === 0) {
-    return "-";
-  }
-
-  return roundMetric(scores.reduce((sum, score) => sum + score, 0) / scores.length);
-}
 
 function scoreDetails(
   answers: {
@@ -95,7 +87,7 @@ export async function GET(
               answers: {
                 include: {
                   question: {
-                    select: { sortOrder: true, title: true },
+                    select: { maxScore: true, sortOrder: true, title: true },
                   },
                 },
                 orderBy: { question: { sortOrder: "asc" } },
@@ -150,16 +142,13 @@ export async function GET(
   });
 
   const rows = teachingClass.enrollments.flatMap((enrollment) => {
-    const student = enrollment.student;
-    const assignments = assignmentsByStudent.get(student.id) ?? [];
-    const rowAssignments = assignments.length > 0 ? assignments : [null];
+      const student = enrollment.student;
+      const assignments = assignmentsByStudent.get(student.id) ?? [];
+      const rowAssignments = assignments.length > 0 ? assignments : [null];
 
     return rowAssignments.map((assignment) => {
       const response = assignment?.response;
-      const scores =
-        response?.answers.flatMap((answer) =>
-          answer.score === null ? [] : [answer.score],
-        ) ?? [];
+      const scoreSummary = response ? responseScoreTotal(response.answers) : null;
 
       return [
         student.name,
@@ -168,7 +157,7 @@ export async function GET(
         assignment ? `${assignment.task.term} · ${assignment.task.name}` : "未派发",
         assignment ? assignmentStatusLabel(assignment.status) : "未派发",
         formatDateTime(response?.submittedAt ?? assignment?.submittedAt),
-        response?.status === "SUBMITTED" ? averageScore(scores) : "-",
+        response?.status === "SUBMITTED" ? scoreSummary?.total ?? "-" : "-",
         response?.status === "SUBMITTED" ? scoreDetails(response.answers) : "-",
         response?.status === "SUBMITTED" ? textDetails(response.answers) : "-",
       ];
@@ -184,7 +173,7 @@ export async function GET(
         "评价任务",
         "状态",
         "提交时间",
-        "平均分",
+        "答卷总分",
         "评分明细",
         "文本意见",
       ],

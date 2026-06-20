@@ -40,6 +40,20 @@ function buildAssignmentWhere(query: ReturnType<typeof parseReportQuery>) {
     filters.push({ teachingClass: { is: { teacherId: query.teacherId } } });
   }
 
+  if (query.teacherName) {
+    filters.push({
+      teachingClass: {
+        is: {
+          teacher: {
+            is: {
+              name: { contains: query.teacherName },
+            },
+          },
+        },
+      },
+    });
+  }
+
   if (query.organizationId) {
     filters.push({
       teachingClass: { is: { organizationId: query.organizationId } },

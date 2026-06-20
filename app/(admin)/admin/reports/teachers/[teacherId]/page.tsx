@@ -110,12 +110,11 @@ function buildAssignmentWhere(
 }
 
 function scoreAnswerValue(score: number, maxScore: number | null | undefined) {
-  const effectiveMaxScore =
-    typeof maxScore === "number" && Number.isFinite(maxScore) && maxScore > 0
-      ? maxScore
-      : 5;
+  if (!(typeof maxScore === "number" && Number.isFinite(maxScore) && maxScore > 0)) {
+    return null;
+  }
 
-  return Math.min(score, effectiveMaxScore);
+  return Math.min(score, maxScore);
 }
 
 function buildEvaluationPoints(assignments: TeacherReportAssignment[]) {
@@ -149,6 +148,10 @@ function buildEvaluationPoints(assignments: TeacherReportAssignment[]) {
     assignment.response?.answers.forEach((answer) => {
       if (assignment.response?.status === "SUBMITTED" && answer.score !== null) {
         const score = scoreAnswerValue(answer.score, answer.question.maxScore);
+
+        if (score === null) {
+          return;
+        }
 
         bucket.scoreCount += 1;
         bucket.scoreTotal += score;

@@ -9,7 +9,10 @@ import {
   cachedJson,
   stableCachePart,
 } from "@/lib/cache/app-cache";
-import { averageScore } from "@/lib/evaluation/aggregate";
+import {
+  averageResponseScore,
+  scoreAnswerValue,
+} from "@/lib/evaluation/scoring";
 
 const MIN_SAMPLE_SIZE = 3;
 
@@ -81,9 +84,11 @@ async function loadFreshTeacherResults(
     }),
     prisma.answer.findMany({
       select: {
+        question: { select: { maxScore: true } },
         score: true,
         response: {
           select: {
+            id: true,
             assignment: { select: { teachingClassId: true } },
             status: true,
           },
@@ -102,23 +107,35 @@ async function loadFreshTeacherResults(
     submittedGroups.map((group) => [group.teachingClassId, group._count._all]),
   );
   const openByClass = new Set(openTaskGroups.map((group) => group.teachingClassId));
-  const scoresByClass = new Map<string, number[]>();
+  const responseScoresByClass = new Map<string, Map<string, number>>();
 
   answerRows.forEach((answer) => {
     if (answer.score === null) {
       return;
     }
 
+    const score = scoreAnswerValue(answer.score, answer.question.maxScore);
+
+    if (score === null) {
+      return;
+    }
+
     const teachingClassId = answer.response.assignment.teachingClassId;
-    scoresByClass.set(teachingClassId, [
-      ...(scoresByClass.get(teachingClassId) ?? []),
-      answer.score,
-    ]);
+    const scoresByResponse =
+      responseScoresByClass.get(teachingClassId) ?? new Map<string, number>();
+
+    scoresByResponse.set(
+      answer.response.id,
+      (scoresByResponse.get(answer.response.id) ?? 0) + score,
+    );
+    responseScoresByClass.set(teachingClassId, scoresByResponse);
   });
 
   const classes = classesBase.map((teachingClass) => ({
     ...teachingClass,
-    averageScore: averageScore(scoresByClass.get(teachingClass.id) ?? []),
+    averageScore: averageResponseScore([
+      ...(responseScoresByClass.get(teachingClass.id)?.values() ?? []),
+    ]),
     hasOpenTask: openByClass.has(teachingClass.id),
     submittedCount: submittedByClass.get(teachingClass.id) ?? 0,
   }));
@@ -159,7 +176,7 @@ export default async function TeacherResultsPage() {
           我的评价结果
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-          按授课班级查看已提交样本、平均得分和结果发布状态。
+          按授课班级查看已提交样本、生均得分和结果发布状态。
         </p>
       </div>
 
@@ -184,7 +201,7 @@ export default async function TeacherResultsPage() {
       </section>
 
       <DataTable
-        headers={["课程班", "提交数", "平均分", "结果状态", "操作"]}
+        headers={["课程班", "提交数", "生均得分", "结果状态", "操作"]}
         emptyText="暂无评价结果。"
         rows={classes.map((teachingClass) => {
           const submittedCount = teachingClass.submittedCount;
