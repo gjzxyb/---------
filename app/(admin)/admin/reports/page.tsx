@@ -927,6 +927,8 @@ export default async function AdminReportsPage({
   const textComments = buildTextComments(responses);
   const exportHref = `/admin/reports/export?${buildReportSearchParams(query).toString()}`;
   const classExportHref = `/admin/reports/classes/export?${buildReportSearchParams(query).toString()}`;
+  const questionExportHref = `/admin/reports/questions/export?${buildReportSearchParams(query).toString()}`;
+  const commentExportHref = `/admin/reports/comments/export?${buildReportSearchParams(query).toString()}`;
   const selectedTeacher = teachers.find((teacher) => teacher.id === query.teacherId);
   const teacherKeyword = query.teacherName ?? selectedTeacher?.name ?? "";
   const schoolPage = paginateItems(aggregates.schools, rawSearchParams, "schoolPage");
@@ -1101,7 +1103,15 @@ export default async function AdminReportsPage({
 
       <section className="grid gap-6 xl:grid-cols-2">
         <div className="space-y-3">
-          <h2 className="text-base font-semibold text-slate-950">题目维度分析</h2>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-base font-semibold text-slate-950">题目维度分析</h2>
+            <Link
+              href={questionExportHref}
+              className="inline-flex w-fit rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700"
+            >
+              导出题目 Excel
+            </Link>
+          </div>
           <DataTable
             headers={["题目", "类型", "计分样本", "平均分", "文本意见"]}
             emptyText="暂无题目统计。"
@@ -1136,7 +1146,15 @@ export default async function AdminReportsPage({
       </section>
 
       <div className="space-y-3">
-        <h2 className="text-base font-semibold text-slate-950">文本意见治理</h2>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-base font-semibold text-slate-950">文本意见治理</h2>
+          <Link
+            href={commentExportHref}
+            className="inline-flex w-fit rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700"
+          >
+            导出文本意见 Excel
+          </Link>
+        </div>
         <DataTable
           headers={["提交时间", "课程/教学班", "题目", "脱敏意见"]}
           emptyText="暂无文本意见。"
