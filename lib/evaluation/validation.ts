@@ -107,6 +107,7 @@ export const questionBankDeleteSchema = z.object({
 });
 
 export const templateQuestionDraftSchema = z.object({
+  id: optionalStringField,
   questionItemId: optionalStringField,
   category: optionalStringField,
   sortOrder: z.preprocess(

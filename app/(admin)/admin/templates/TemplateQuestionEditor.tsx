@@ -13,6 +13,7 @@ type QuestionBankOption = {
 };
 
 type DraftQuestion = {
+  id?: string;
   localId: string;
   questionItemId?: string;
   category: string;
@@ -54,6 +55,7 @@ function questionTypeLabel(type: string) {
 
 function serializeQuestion(question: DraftQuestion) {
   return {
+    id: question.id,
     questionItemId: question.questionItemId,
     category: question.category,
     sortOrder: question.sortOrder,
@@ -156,6 +158,7 @@ export function TemplateQuestionEditor({
         ...currentQuestions,
         ...importedQuestions.map((question, index) => ({
           ...question,
+          id: undefined,
           localId: createLocalId(),
           sortOrder: currentQuestions.length + index + 1,
           category: question.category ?? "",

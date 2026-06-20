@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState, useState } from "react";
 
 import {
   deleteEvaluationTemplate,
-  updateEvaluationTemplateQuestions,
+  updateEvaluationTemplateQuestionsWithState,
 } from "@/app/actions/admin";
 import { StatusBadge } from "@/components/status-badge";
 import { activeStatusLabel, activeStatusTone, formatInteger } from "@/lib/demo-data";
@@ -63,12 +63,21 @@ function parseQuestionDescription(description: string | null) {
   return result;
 }
 
+const initialUpdateState = {
+  ok: false,
+  message: "",
+};
+
 export function TemplateVersionManager({
   templates,
   questionBankItems,
 }: TemplateVersionManagerProps) {
   const [expandedTemplateId, setExpandedTemplateId] = useState(
     templates[0]?.id ?? "",
+  );
+  const [updateState, updateAction, updatePending] = useActionState(
+    updateEvaluationTemplateQuestionsWithState,
+    initialUpdateState,
   );
 
   const expandedTemplate = templates.find(
@@ -176,7 +185,7 @@ export function TemplateVersionManager({
 
       {expandedTemplate ? (
         <form
-          action={updateEvaluationTemplateQuestions}
+          action={updateAction}
           className="rounded-md border border-slate-200 bg-white p-5 shadow-sm"
         >
           <input type="hidden" name="templateId" value={expandedTemplate.id} />
@@ -199,6 +208,17 @@ export function TemplateVersionManager({
               启用模板
             </label>
           </div>
+          {updateState.message ? (
+            <p
+              className={`mt-4 rounded-md px-3 py-2 text-sm font-medium ${
+                updateState.ok
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "bg-rose-50 text-rose-700"
+              }`}
+            >
+              {updateState.message}
+            </p>
+          ) : null}
           <div className="mt-4">
             <TemplateQuestionEditor
               key={expandedTemplate.id}
@@ -212,6 +232,7 @@ export function TemplateVersionManager({
                   );
 
                   return {
+                    id: question.id,
                     questionItemId: question.questionItemId ?? undefined,
                     category: parsedDescription.category,
                     sortOrder: question.sortOrder,
@@ -223,6 +244,7 @@ export function TemplateVersionManager({
                   };
                 })}
               submitLabel="保存题目修改"
+              disabled={updatePending}
             />
           </div>
         </form>

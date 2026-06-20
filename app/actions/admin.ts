@@ -31,6 +31,11 @@ import {
 } from "@/lib/evaluation/task-publishing";
 import { requireRole } from "@/lib/auth/guards";
 
+export type TemplateQuestionUpdateActionState = {
+  ok: boolean;
+  message: string;
+};
+
 function buildQuestionDescription(question: {
   category?: string;
   optionsText?: string;
@@ -128,31 +133,111 @@ export async function updateEvaluationTemplateQuestions(formData: FormData) {
     questionsJson: String(formData.get("questionsJson") ?? "[]"),
   });
   const { prisma } = await import("@/lib/db");
+  const existingQuestions = await prisma.templateQuestion.findMany({
+    where: { templateId: parsedTemplate.templateId },
+    select: {
+      id: true,
+      _count: { select: { answers: true } },
+    },
+    orderBy: { sortOrder: "asc" },
+  });
+  const existingQuestionIds = new Set(
+    existingQuestions.map((question) => question.id),
+  );
+  const submittedExistingQuestionIds = new Set(
+    parsedTemplate.questions
+      .map((question) => question.id)
+      .filter(
+        (id): id is string =>
+          typeof id === "string" && existingQuestionIds.has(id),
+      ),
+  );
+  const removedAnsweredQuestions = existingQuestions.filter(
+    (question) =>
+      !submittedExistingQuestionIds.has(question.id) &&
+      question._count.answers > 0,
+  );
 
-  await prisma.$transaction([
-    prisma.templateQuestion.deleteMany({
-      where: { templateId: parsedTemplate.templateId },
-    }),
-    prisma.evaluationTemplate.update({
+  if (removedAnsweredQuestions.length > 0) {
+    throw new Error("已有作答数据的模板题目不能删除，请保留该题目后再保存。");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.evaluationTemplate.update({
       where: { id: parsedTemplate.templateId },
-      data: {
-        isActive: parsedTemplate.isActive,
-        questions: {
-          create: parsedTemplate.questions.map((question, index) => ({
-            questionItemId: question.questionItemId,
-            type: question.type,
-            title: question.title,
-            description: buildQuestionDescription(question),
-            maxScore: question.maxScore,
-            sortOrder: question.sortOrder || index + 1,
-            required: question.required,
-          })),
+      data: { isActive: parsedTemplate.isActive },
+    });
+
+    await Promise.all(
+      existingQuestions.map((question, index) =>
+        tx.templateQuestion.update({
+          where: { id: question.id },
+          data: { sortOrder: -(index + 1) },
+        }),
+      ),
+    );
+
+    await tx.templateQuestion.deleteMany({
+      where: {
+        id: {
+          in: existingQuestions
+            .filter(
+              (question) => !submittedExistingQuestionIds.has(question.id),
+            )
+            .map((question) => question.id),
         },
       },
-    }),
-  ]);
+    });
+
+    await Promise.all(
+      parsedTemplate.questions.map((question, index) => {
+        const questionData = {
+          questionItemId: question.questionItemId ?? null,
+          type: question.type,
+          title: question.title,
+          description: buildQuestionDescription(question),
+          maxScore: question.maxScore,
+          sortOrder: question.sortOrder || index + 1,
+          required: question.required,
+        };
+
+        if (question.id && existingQuestionIds.has(question.id)) {
+          return tx.templateQuestion.update({
+            where: { id: question.id },
+            data: questionData,
+          });
+        }
+
+        return tx.templateQuestion.create({
+          data: {
+            ...questionData,
+            templateId: parsedTemplate.templateId,
+          },
+        });
+      }),
+    );
+  });
 
   await refreshEvaluationPages(["/admin/templates"]);
+}
+
+export async function updateEvaluationTemplateQuestionsWithState(
+  _previousState: TemplateQuestionUpdateActionState,
+  formData: FormData,
+): Promise<TemplateQuestionUpdateActionState> {
+  try {
+    await updateEvaluationTemplateQuestions(formData);
+
+    return { ok: true, message: "题目修改已保存。" };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "保存失败，请检查题目设置后重试。",
+    };
+  }
 }
 
 export async function deleteEvaluationTemplate(formData: FormData) {
